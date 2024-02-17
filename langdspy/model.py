@@ -5,9 +5,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra
 from langchain_core.pydantic_v1 import validator
 from langchain_core.language_models import BaseLLM
-
-from typing import Any, Dict, List, Type, Optional
+from typing import Any, Dict, List, Type, Optional, Callable
 from abc import ABC, abstractmethod
+from langchain_core.documents import Document
 from langchain_core.runnables.utils import (
     Input,
     Output
@@ -22,18 +22,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FieldDescriptor:
-    def __init__(self, name:str, desc: str):
+    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None):
         self.name = name
         self.desc = desc
+        self.formatter = formatter
 
-    def __set_name__(self, owner, name):
-        self.private_name = f"_{name}"
 
-    def __get__(self, obj, objtype=None):
-        return getattr(obj, self.private_name, None)
-
-    def __set__(self, obj, value):
-        setattr(obj, self.private_name, value)
+    def format_value(self, value: Any) -> Any:
+        if self.formatter:
+            return self.formatter(value)
+        else:
+            return value
 
 class InputField(FieldDescriptor):
     pass
@@ -56,19 +55,12 @@ class PromptSignature(BasePromptTemplate, BaseModel):
     output_variables: Dict[str, Any] = []
 
     def __init__(self, **kwargs):
-        # print(dir(self.__class__))
-        # print("Calling super")
-        # Temporarily bypassing the setting of input and output variables
         super().__init__(**kwargs)
-        # print("Done super")
-        # print(self.__class__.__fields__)
 
         inputs = {}
         outputs = {}
 
         for name, attribute in self.__class__.__fields__.items():
-            # print(f"field: {name}, value: {attribute}")
-
             if attribute.type_ == InputField:
                 inputs[name] = attribute.default
             elif attribute.type_ == OutputField:
@@ -76,9 +68,6 @@ class PromptSignature(BasePromptTemplate, BaseModel):
 
         self.input_variables = inputs
         self.output_variables = outputs
-
-        # print(f"Inputs: {self.input_variables}")
-        # print(f"Outputs: {self.output_variables}")
 
 class PromptStrategy(BaseModel):
     # def generate_prediction_return(self, **kwargs, output) -> Prediction:
@@ -104,7 +93,9 @@ class DefaultPromptStrategy(PromptStrategy):
         prompt += "\n---\n\n"
 
         for input_name, input_field in self.input_variables.items():
-            prompt += f"{input_field.name}: {kwargs.get(input_name)}\n"
+            val = input_field.format_value(kwargs.get(input_name))
+
+            prompt += f"{input_field.name}: {val}\n"
 
         prompt += f"{output_field.name}: "
 
@@ -133,10 +124,12 @@ class PromptRunner(RunnableSerializable):
         return value
     
     def invoke(self, input: Input, config: Optional[RunnableConfig] = None) -> Output:
-        # print(f"Prompt runner {self.template.__class__.__name__} invoked with input: {input}")
-        # prompt = self.template.format(**input)
-        # print(f"Prompt: {prompt}")
+        print(f"Prompt runner {self.template.__class__.__name__} invoked with input: {input}")
+        prompt = self.template.format(**input)
+        print(f"Prompt: {prompt}")
 
+        logger.debug(f"Template: {self.template}")
+        logger.debug(f"Config: {config}")
         chain = (
             self.template
             | config['llm']
@@ -154,11 +147,6 @@ class PromptRunner(RunnableSerializable):
         prediction = Prediction(**prediction_data)
 
         return prediction
-
-
-
-    def __call__(self, **kwargs):
-        return self.invoke(kwargs)
 
 class Model(RunnableSerializable):
     prompt_runners = []
