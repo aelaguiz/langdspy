@@ -1,0 +1,12 @@
+*.pyc
+.env
+__pycache__
+*.pkl
+*.json
+venv
+.*.db
+.DS_Store
+cache*
+sources
+*.pickle
+logs
