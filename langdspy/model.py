@@ -69,6 +69,11 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.input_variables = inputs
         self.output_variables = outputs
 
+    def validate_output(self, output: Output) -> bool:
+        # Default implementation, can be overridden
+        return True
+
+
 class PromptStrategy(BaseModel):
     # def generate_prediction_return(self, **kwargs, output) -> Prediction:
     #     pass
@@ -123,7 +128,20 @@ class PromptRunner(RunnableSerializable):
         print(f"Checking template: {value}")
         return value
     
-    def invoke(self, input: Input, config: Optional[RunnableConfig] = None) -> Output:
+    def _invoke_with_retries(self, chain, input, max_retries = 0, config: Optional[RunnableConfig] = None):
+        while max_retries >= 0:
+            res = chain.invoke(input, config={'callbacks': []})
+
+            logger.debug(f"Validating output for prompt runner {self.template.__class__.__name__}: {res}")
+            if self.template.validate_output(res):
+                return res
+
+            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
+            max_retries -= 1
+
+        raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
+        
+    def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> Output:
         print(f"Prompt runner {self.template.__class__.__name__} invoked with input: {input}")
         prompt = self.template.format(**input)
         print(f"Prompt: {prompt}")
@@ -136,7 +154,10 @@ class PromptRunner(RunnableSerializable):
             | StrOutputParser()
         )
 
-        res = chain.invoke(input, config={'callbacks': []})
+        max_retries = config.get('max_retries', 0)
+
+        res = self._invoke_with_retries(chain, input, max_retries, config=config)
+
         logger.debug(f"Result: {res}")
 
         prediction_data = {**input}
