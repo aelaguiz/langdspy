@@ -1,4 +1,4 @@
-# langdspy: Langchain implementation of stanford DSP
+# langdspy: Langchain implementation of stanford DSPy
 
 This is intended to be a langchain native implementation of the innovative principles pioneered by the wonderful [DSPy](https://github.com/stanfordnlp/dspy)
 
