@@ -22,15 +22,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FieldDescriptor:
-    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None):
+    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None):
         self.name = name
         self.desc = desc
         self.formatter = formatter
+        self.transformer = transformer
 
 
     def format_value(self, value: Any) -> Any:
         if self.formatter:
             return self.formatter(value)
+        else:
+            return value
+
+    def transform_value(self, value: Any) -> Any:
+        if self.transformer:
+            return self.transformer(value)
         else:
             return value
 
@@ -69,7 +76,7 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.input_variables = inputs
         self.output_variables = outputs
 
-    def validate_output(self, output: Output) -> bool:
+    def validate_output(self, input: Input, output: Output) -> bool:
         # Default implementation, can be overridden
         return True
 
@@ -104,6 +111,7 @@ class DefaultPromptStrategy(PromptStrategy):
 
         prompt += f"{output_field.name}: "
 
+        logger.debug(f"Formatted prompt: {prompt}")
         return prompt
 
     def validate_inputs(self, inputs_dict):
@@ -130,10 +138,10 @@ class PromptRunner(RunnableSerializable):
     
     def _invoke_with_retries(self, chain, input, max_tries = 1, config: Optional[RunnableConfig] = None):
         while max_tries >= 1:
-            res = chain.invoke(input, config={'callbacks': [lcel_logger.LlmDebugHandler()]})
+            res = chain.invoke(input, config=config)
 
             logger.debug(f"Validating output for prompt runner {self.template.__class__.__name__}: {res}")
-            if self.template.validate_output(res):
+            if self.template.validate_output(input, res):
                 return res
 
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
@@ -163,7 +171,8 @@ class PromptRunner(RunnableSerializable):
         prediction_data = {**input}
 
         for output_var_name in self.template.output_variables.keys():
-            prediction_data[output_var_name] = res
+            transformed_val = self.template.output_variables[output_var_name].transform_value(res)
+            prediction_data[output_var_name] = transformed_val
 
         prediction = Prediction(**prediction_data)
 
