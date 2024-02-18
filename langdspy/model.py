@@ -128,16 +128,16 @@ class PromptRunner(RunnableSerializable):
         print(f"Checking template: {value}")
         return value
     
-    def _invoke_with_retries(self, chain, input, max_retries = 0, config: Optional[RunnableConfig] = None):
-        while max_retries >= 0:
-            res = chain.invoke(input, config={'callbacks': []})
+    def _invoke_with_retries(self, chain, input, max_tries = 1, config: Optional[RunnableConfig] = None):
+        while max_tries >= 1:
+            res = chain.invoke(input, config={'callbacks': [lcel_logger.LlmDebugHandler()]})
 
             logger.debug(f"Validating output for prompt runner {self.template.__class__.__name__}: {res}")
             if self.template.validate_output(res):
                 return res
 
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
-            max_retries -= 1
+            max_tries -= 1
 
         raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
         
@@ -154,7 +154,7 @@ class PromptRunner(RunnableSerializable):
             | StrOutputParser()
         )
 
-        max_retries = config.get('max_retries', 0)
+        max_retries = config.get('max_tries', 3)
 
         res = self._invoke_with_retries(chain, input, max_retries, config=config)
 
