@@ -1,4 +1,5 @@
 from langchain.prompts import BasePromptTemplate  # Assuming this is the correct import path
+import re
 from langchain.prompts import FewShotPromptTemplate
 from langchain_core.runnables import RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
@@ -22,11 +23,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 class FieldDescriptor:
-    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None):
+    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None):
+        assert "⏎" not in name, "Field name cannot contain newline character"
+        assert ":" not in name, "Field name cannot contain colon character"
+
         self.name = name
         self.desc = desc
         self.formatter = formatter
         self.transformer = transformer
+        self.validator = validator
 
 
     def format_value(self, value: Any) -> Any:
@@ -40,6 +45,12 @@ class FieldDescriptor:
             return self.transformer(value)
         else:
             return value
+
+    def validate_value(self, input: Input, value: Any) -> bool:
+        if self.validator:
+            return self.validator(input, value)
+        else:
+            return True
 
 class InputField(FieldDescriptor):
     pass
@@ -76,11 +87,6 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.input_variables = inputs
         self.output_variables = outputs
 
-    def validate_output(self, input: Input, output: Output) -> bool:
-        # Default implementation, can be overridden
-        return True
-
-
 class PromptStrategy(BaseModel):
     # def generate_prediction_return(self, **kwargs, output) -> Prediction:
     #     pass
@@ -92,27 +98,76 @@ class DefaultPromptStrategy(PromptStrategy):
     def format_prompt(self, **kwargs: Any) -> str:
         self.validate_inputs(kwargs)
 
-        print("Formatting prompt")
-        print(f"Input variables: self.input_variables: {self.input_variables}")
+        prompt = "Follow the following format. "
 
-        prompt = "Follow the following format.\n\n"
+        if len(self.output_variables) > 1:
+            prompt += "Fill any missing attributes and their values."
+
+        prompt += "\n\n"
         for input_name, input_field in self.input_variables.items():
-            prompt += f"{input_field.name}: {input_field.desc}\n"
+            prompt += f"⏎{input_field.name}: {input_field.desc}\n"
 
         for output_name, output_field in self.output_variables.items():
-            prompt += f"{output_field.name}: {output_field.desc}\n"
+            prompt += f"⏎{output_field.name}: {output_field.desc}\n"
 
         prompt += "\n---\n\n"
 
         for input_name, input_field in self.input_variables.items():
             val = input_field.format_value(kwargs.get(input_name))
 
-            prompt += f"{input_field.name}: {val}\n"
+            prompt += f"⏎{input_field.name}: {val}\n"
 
-        prompt += f"{output_field.name}: "
+        if len(self.output_variables) == 1:
+            for output_name, output_field in self.output_variables.items():
+                prompt += f"⏎{output_field.name}: \n"
+        else:
+            for output_name, output_field in self.output_variables.items():
+                prompt += f"\n"
 
         logger.debug(f"Formatted prompt: {prompt}")
         return prompt
+
+    def _get_output_field(self, field_name):
+        for output_name, output_field in self.output_variables.items():
+            if output_field.name == field_name:
+                return output_name
+
+        assert False, f"Field {field_name} not found in output variables"
+
+    def parse_output_to_fields(self, output: str) -> dict:
+        """
+        Parses the provided output string into a dictionary with keys as field names 
+        and values as the corresponding field contents, using regex.
+
+        Parameters:
+        output (str): The string output to be parsed.
+
+        Returns:
+        dict: A dictionary where each key is an output field name and each value is the content of that field.
+        """
+        # Regular expression pattern to match field name and content
+        pattern = r'([^:]+):(.*)'
+
+        # Split the output by the special character
+        lines = output.split('⏎')
+
+        # Dictionary to hold the parsed fields
+        parsed_fields = {}
+
+        for line in lines:
+            # If there are multiple outputs we should assume that we'll get the labels with each, if just one we'll just assign the whole thing
+            if len(self.output_variables) > 1:
+                match = re.match(pattern, line)
+                if match:
+                    # Extract field name and content from the match
+                    field_name, field_content = match.groups()
+
+                    output_field = self._get_output_field(field_name)
+                    parsed_fields[output_field] = field_content
+            else:
+                parsed_fields[list(self.output_variables.keys())[0]] = line
+
+        return parsed_fields
 
     def validate_inputs(self, inputs_dict):
         assert set(inputs_dict.keys()) == set(self.input_variables.keys()), "Input keys do not match expected input keys"
@@ -124,7 +179,6 @@ class PromptRunner(RunnableSerializable):
     template: PromptSignature = None
 
     def __init__(self, template_class, prompt_strategy):
-        print(f"Initializing prompt runner")
         super().__init__()
         cls_ = type(template_class.__name__, (prompt_strategy, template_class), {})
         self.template = cls_()
@@ -133,26 +187,68 @@ class PromptRunner(RunnableSerializable):
     def check_template(
         cls, value: PromptSignature
     ) -> PromptSignature:
-        print(f"Checking template: {value}")
         return value
     
-    def _invoke_with_retries(self, chain, input, max_tries = 1, config: Optional[RunnableConfig] = None):
+    def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
+        total_max_tries = max_tries
+
+        hard_fail = config.get('hard_fail', False)
+
+        res = {}
+
         while max_tries >= 1:
             res = chain.invoke(input, config=config)
+            validation = True
 
-            logger.debug(f"Validating output for prompt runner {self.template.__class__.__name__}: {res}")
-            if self.template.validate_output(input, res):
+            logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
+
+            # Use the parse_output_to_fields method from the PromptStrategy
+            parsed_output = self.template.parse_output_to_fields(res)
+            logger.debug(f"Parsed output: {parsed_output}")
+
+            len_parsed_output = len(parsed_output.keys())
+            len_output_variables = len(self.template.output_variables.keys())
+            logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
+
+            if len(parsed_output.keys()) != len(self.template.output_variables.keys()):
+                logger.error(f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}")
+                validation = False
+
+            if validation:
+                # Transform and validate the outputs
+                for attr_name, output_field in self.template.output_variables.items():
+                    output_value = parsed_output.get(attr_name)
+                    if not output_value:
+                        logger.error(f"Failed to get output value for field {attr_name} for prompt runner {self.template.__class__.__name__}")
+                        validation = False
+                        continue
+
+                    # Get the transformed value
+                    transformed_val = output_field.transform_value(output_value)
+
+                    # Validate the transformed value
+                    if not output_field.validate_value(input, transformed_val):
+                        validation = False
+                        logger.error(f"Failed to validate field {attr_name} value {transformed_val} for prompt runner {self.template.__class__.__name__}")
+
+                    # Update the output with the transformed value
+                    parsed_output[attr_name] = transformed_val
+
+            res = {attr_name: parsed_output[attr_name] for attr_name in self.template.output_variables.keys()}
+            if validation:
+                # Return a dictionary keyed by attribute names with validated values
                 return res
 
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
             max_tries -= 1
 
-        raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
-        
+        if hard_fail:
+            raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries.")
+
+        return res
+ 
     def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> Output:
-        print(f"Prompt runner {self.template.__class__.__name__} invoked with input: {input}")
         prompt = self.template.format(**input)
-        print(f"Prompt: {prompt}")
 
         logger.debug(f"Template: {self.template}")
         logger.debug(f"Config: {config}")
@@ -168,11 +264,8 @@ class PromptRunner(RunnableSerializable):
 
         logger.debug(f"Result: {res}")
 
-        prediction_data = {**input}
+        prediction_data = {**input, **res}
 
-        for output_var_name in self.template.output_variables.keys():
-            transformed_val = self.template.output_variables[output_var_name].transform_value(res)
-            prediction_data[output_var_name] = transformed_val
 
         prediction = Prediction(**prediction_data)
 
