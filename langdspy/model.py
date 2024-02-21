@@ -1,14 +1,22 @@
 from langchain.prompts import BasePromptTemplate  # Assuming this is the correct import path
+import time
+import random
 import re
 from langchain.prompts import FewShotPromptTemplate
 from langchain_core.runnables import RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra
+from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra, PrivateAttr
 from langchain_core.pydantic_v1 import validator
 from langchain_core.language_models import BaseLLM
 from typing import Any, Dict, List, Type, Optional, Callable
 from abc import ABC, abstractmethod
 from langchain_core.documents import Document
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional
+import threading
+
+
+
 from langchain_core.runnables.utils import (
     Input,
     Output
@@ -37,6 +45,7 @@ class Prediction(BaseModel):
         
 class PromptRunner(RunnableSerializable):
     template: PromptSignature = None
+    # prompt_history: List[str] = [] - Was trying to find a way to make a list of prompts for inspection 
 
     def __init__(self, template_class, prompt_strategy):
         super().__init__()
@@ -60,13 +69,16 @@ class PromptRunner(RunnableSerializable):
             res = chain.invoke(input, config=config)
             validation = True
 
+            print(res)
             logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
             try:
                 parsed_output = self.template.parse_output_to_fields(res)
-            except:
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
                 logger.error(f"Failed to parse output for prompt runner {self.template.__class__.__name__}")
                 validation = False
             logger.debug(f"Parsed output: {parsed_output}")
@@ -88,13 +100,20 @@ class PromptRunner(RunnableSerializable):
                         validation = False
                         continue
 
-                    # Get the transformed value
-                    transformed_val = output_field.transform_value(output_value)
-
                     # Validate the transformed value
-                    if not output_field.validate_value(input, transformed_val):
+                    if not output_field.validate_value(input, output_value):
                         validation = False
-                        logger.error(f"Failed to validate field {attr_name} value {transformed_val} for prompt runner {self.template.__class__.__name__}")
+                        logger.error(f"Failed to validate field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}")
+
+                    # Get the transformed value
+                    try:
+                        transformed_val = output_field.transform_value(output_value)
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        logger.error(f"Failed to transform field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}")
+                        validation = False
+                        continue
 
                     # Update the output with the transformed value
                     parsed_output[attr_name] = transformed_val
@@ -105,7 +124,8 @@ class PromptRunner(RunnableSerializable):
                 # Return a dictionary keyed by attribute names with validated values
                 return res
 
-            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}")
+            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}, pausing before we retry")
+            time.sleep(random.uniform(0.1, 1.5))
             max_tries -= 1
 
         if hard_fail:
@@ -136,6 +156,50 @@ class PromptRunner(RunnableSerializable):
         prediction = Prediction(**prediction_data)
 
         return prediction
+
+
+_multi_lock = threading.Lock()
+class MultiPromptRunner(PromptRunner):
+    predictions: List[Any] = []
+
+    def __init__(self, template_class, prompt_strategy):
+        super().__init__(template_class, prompt_strategy)
+        self.predictions = []
+
+    def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> List[Output]:
+        # logger.debug(f"MultiPromptRunner invoke with input {input} and config {config}")
+        number_of_threads = config.get('number_of_threads', 1)
+        target_runs = config.get('target_runs', 1)
+
+        # logger.debug(f"MultiPromptRunner number_of_threads: {number_of_threads} target_runs: {target_runs}")
+        predictions = []
+        futures = []
+
+        def run_task():
+            with _multi_lock:
+                logger.debug(f"Running task")
+                if len(self.predictions) < target_runs:
+                    # logger.debug(f"Running task with input {input} and config {config}")
+                    prediction = super(MultiPromptRunner, self).invoke(input, config)
+                    # logger.debug(f"Prediction: {prediction}")
+                    self.predictions.append(prediction)
+
+        with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
+            for _ in range(target_runs):
+                # logger.debug(f"Submitting task to executor")
+                future = executor.submit(run_task)
+                futures.append(future)
+                # logger.debug(f"Task submitted to executor")
+
+            for future in as_completed(futures):
+                future.result()  # This will block until the future is done
+
+
+        # logger.debug(f"MultiPromptRunner predictions: {self.predictions}")
+        return self.predictions
+
+
+
 
 class Model(RunnableSerializable):
     prompt_runners = []

@@ -25,7 +25,7 @@ def as_json(obj: Dict[str, Any]) -> str:
     return '\n' + f"«{json.dumps(obj, indent=4)}»" + '\n'
 
 def as_bulleted_list(items: List[str]) -> str:
-    return '\n' + '\n'.join(f"- {item}" for item in items) + '\n'
+    return '\n' + '\n'.join(f"- {item}" for item in items)
 
 def as_yaml(obj: Any) -> str:
     return f"\n«{yaml.dump(obj, default_flow_style=False)}»\n"

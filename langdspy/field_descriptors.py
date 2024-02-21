@@ -41,24 +41,29 @@ class InputField(FieldDescriptor):
     def _start_format(self):
         return f"{self.START_TOKEN}{self.name}"
         
-    def format_prompt(self, value: Optional[Any] = None):
-        value = self.format_value(value) if value else self.desc
+    def format_prompt_description(self):
+        return f"{self._start_format()}: {self.desc}"
+
+    def format_prompt_value(self, value):
+        value = self.format_value(value)
         return f"{self._start_format()}: {value}"
 
 class InputFieldList(InputField):
-    def format_prompt(self, value: Optional[List] = None):
-        if not value:
-            return f"{self._start_format()}: {self.desc}"
-        else:
-            res = ""
-            for i, value in enumerate(value):
-                value = self.format_value(value)
-                res += f"{self.START_TOKEN}{self.name} [{i}]: {value}\n"
+    def format_prompt_description(self):
+        return f"{self._start_format()}: {self.desc}"
 
-            # import traceback
-            # traceback.print_stack()
-            # input(f"Hit enter but res: {res}...")
-            return res
+    def format_prompt_value(self, value):
+        res = ""
+        for i, value in enumerate(value):
+            if i > 0:
+                res += "\n"
+            value = self.format_value(value)
+            res += f"{self.START_TOKEN}{self.name} [{i}]: {value}"
+
+        # import traceback
+        # traceback.print_stack()
+        # input(f"Hit enter but res: {res}...")
+        return res
 
 class OutputField(FieldDescriptor):
     pass
