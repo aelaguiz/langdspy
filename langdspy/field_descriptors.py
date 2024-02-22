@@ -6,7 +6,7 @@ from langchain_core.runnables.utils import (
 import logging
 
 class FieldDescriptor:
-    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None):
+    def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None, **kwargs):
         assert "⏎" not in name, "Field name cannot contain newline character"
         assert ":" not in name, "Field name cannot contain colon character"
 
@@ -15,11 +15,12 @@ class FieldDescriptor:
         self.formatter = formatter
         self.transformer = transformer
         self.validator = validator
+        self.kwargs = kwargs
 
 
     def format_value(self, value: Any) -> Any:
         if self.formatter:
-            return self.formatter(value)
+            return self.formatter(value, self.kwargs)
         else:
             return value
 

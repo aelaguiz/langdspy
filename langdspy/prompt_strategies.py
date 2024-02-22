@@ -109,6 +109,7 @@ class DefaultPromptStrategy(PromptStrategy):
                     output_field = self._get_output_field(field_name)
 
                     if output_field:
+                        logger.debug(f"Matched field {field_name} to output field {output_field}")
                         parsed_fields[output_field] = field_content
                     else:
                         logger.error(f"Field {field_name} not found in output variables")
@@ -116,8 +117,10 @@ class DefaultPromptStrategy(PromptStrategy):
                     logger.debug(f"NO MATCH line {line}")
                     
             if not parsed_fields and len(self.output_variables) == 1:
-                parsed_fields[list(self.output_variables.keys())[0]] = line
+                logger.debug(f"NO MATCHES - setting last field to output: {lines[-1]}")
+                parsed_fields[list(self.output_variables.keys())[0]] = lines[-1]
 
+            logger.debug(f"Parsed fields: {parsed_fields}")
 
             return parsed_fields
         except Exception as e:

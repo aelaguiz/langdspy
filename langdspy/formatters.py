@@ -4,28 +4,33 @@ import yaml
 import json
 from langchain_core.documents import Document
 
-def as_docs(docs: List[Document]) -> str:
+def as_docs(docs: List[Document], kwargs: Dict) -> str:
+    max_doc_length = kwargs.get("max_doc_length", None)
     formatted_docs = ""
     for i, doc in enumerate(docs):
-        formatted_docs += f"[{i}]«{doc.page_content}»\n"
+        content = doc.page_content
+
+        if len(content) > max_doc_length:
+            content = content[:max_doc_length] + "..."
+        formatted_docs += f"[{i}]«{content}»\n"
 
     return formatted_docs
 
-def as_multiline(input) -> str:
+def as_multiline(input, kwargs: Dict) -> str:
     return f"«{input}»"
 
-def as_list(strings: List[str]) -> str:
+def as_list(strings: List[str], kwargs: Dict) -> str:
     formatted_docs = ""
     for i, val in enumerate(strings):
         formatted_docs += f"[{i}] {val}"
 
     return '\n' + formatted_docs + '\n'
 
-def as_json(obj: Dict[str, Any]) -> str:
+def as_json(obj: Dict[str, Any], kwargs: Dict) -> str:
     return '\n' + f"«{json.dumps(obj, indent=4)}»" + '\n'
 
-def as_bulleted_list(items: List[str]) -> str:
+def as_bulleted_list(items: List[str], kwargs: Dict) -> str:
     return '\n' + '\n'.join(f"- {item}" for item in items)
 
-def as_yaml(obj: Any) -> str:
+def as_yaml(obj: Any, kwargs: Dict) -> str:
     return f"\n«{yaml.dump(obj, default_flow_style=False)}»\n"
