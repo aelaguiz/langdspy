@@ -60,14 +60,16 @@ class PromptStrategy(BaseModel):
 
 
 class DefaultPromptStrategy(PromptStrategy):
+    OUTPUT_TOKEN = "🔑"
+
     def format_prompt(self, **kwargs: Any) -> str:
         # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
         self.validate_inputs(kwargs)
 
-        prompt = "Follow the following format. "
+        prompt = "Follow the following format. Attributes that have values should not be changed or repeated."
 
         if len(self.output_variables) > 1:
-            prompt += "Fill any missing attributes and their values. Attributes that have values should not be changed or repeated."
+            prompt += "Fill any missing attributes and their values."
 
         prompt += "\n\n"
         for input_name, input_field in self.input_variables.items():
@@ -75,7 +77,7 @@ class DefaultPromptStrategy(PromptStrategy):
             prompt += input_field.format_prompt_description() + "\n"
 
         for output_name, output_field in self.output_variables.items():
-            prompt += f"⏎{output_field.name}: {output_field.desc}\n"
+            prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
 
         prompt += "\n---\n\n"
 
@@ -84,10 +86,10 @@ class DefaultPromptStrategy(PromptStrategy):
 
         if len(self.output_variables) == 1:
             for output_name, output_field in self.output_variables.items():
-                prompt += f"⏎{output_field.name}: \n"
+                prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: \n"
         else:
             for output_name, output_field in self.output_variables.items():
-                prompt += f"⏎{output_field.name}: \n"
+                prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: \n"
                 # prompt += f"\n"
 
         # logger.debug(f"Formatted prompt: {prompt}")
@@ -97,33 +99,35 @@ class DefaultPromptStrategy(PromptStrategy):
     def parse_output_to_fields(self, output: str) -> dict:
         try:
             pattern = r'^([^:]+): (.*)'
-            lines = output.split('⏎')
+            lines = output.split(self.OUTPUT_TOKEN)
             parsed_fields = {}
 
-            logger.debug(f"Parsing output to fields with pattern {pattern} and lines {lines}")
+            # logger.debug(f"Parsing output to fields with pattern {pattern} and lines {lines}")
             for line in lines:
                 match = re.match(pattern, line, re.MULTILINE)
                 if match:
                     field_name, field_content = match.groups()
-                    logger.debug(f"Matched line {line} - field name {field_name} field content {field_content}")
+                    # logger.debug(f"Matched line {line} - field name {field_name} field content {field_content}")
                     output_field = self._get_output_field(field_name)
 
                     if output_field:
-                        logger.debug(f"Matched field {field_name} to output field {output_field}")
+                        # logger.debug(f"Matched field {field_name} to output field {output_field}")
                         parsed_fields[output_field] = field_content
                     else:
                         logger.error(f"Field {field_name} not found in output variables")
-                else:
-                    logger.debug(f"NO MATCH line {line}")
+                # else:
+                #     logger.debug(f"NO MATCH line {line}")
                     
 
             if len(self.output_variables) == 1:
                 first_value = next(iter(parsed_fields.values()), None)
                 if not first_value:
-                    logger.debug(f"NO MATCHES - setting last field to output: {lines[-1]}")
+                    # logger.debug(f"NO MATCHES - setting last field to output: {lines[-1]}")
                     parsed_fields[list(self.output_variables.keys())[0]] = lines[-1]
+                else:
+                    logger.error(f"NO MATCHES - setting last field to output: {lines[-1]}")
 
-            logger.debug(f"Parsed fields: {parsed_fields}")
+            # logger.debug(f"Parsed fields: {parsed_fields}")
 
             return parsed_fields
         except Exception as e:

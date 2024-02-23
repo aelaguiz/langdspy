@@ -158,13 +158,9 @@ class PromptRunner(RunnableSerializable):
         return prediction
 
 
-_multi_lock = threading.Lock()
 class MultiPromptRunner(PromptRunner):
-    predictions: List[Any] = []
-
     def __init__(self, template_class, prompt_strategy):
         super().__init__(template_class, prompt_strategy)
-        self.predictions = []
 
     def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> List[Output]:
         # logger.debug(f"MultiPromptRunner invoke with input {input} and config {config}")
@@ -176,27 +172,22 @@ class MultiPromptRunner(PromptRunner):
         futures = []
 
         def run_task():
-            with _multi_lock:
-                logger.debug(f"Running task")
-                if len(self.predictions) < target_runs:
-                    # logger.debug(f"Running task with input {input} and config {config}")
-                    prediction = super(MultiPromptRunner, self).invoke(input, config)
-                    # logger.debug(f"Prediction: {prediction}")
-                    self.predictions.append(prediction)
+            # Direct invocation of the super class method without modifying shared state here
+            return super(MultiPromptRunner, self).invoke(input, config)
 
         with ThreadPoolExecutor(max_workers=number_of_threads) as executor:
             for _ in range(target_runs):
-                # logger.debug(f"Submitting task to executor")
                 future = executor.submit(run_task)
                 futures.append(future)
-                # logger.debug(f"Task submitted to executor")
 
             for future in as_completed(futures):
-                future.result()  # This will block until the future is done
+                # Collect results as they complete
+                prediction = future.result()
+                predictions.append(prediction)
 
 
         # logger.debug(f"MultiPromptRunner predictions: {self.predictions}")
-        return self.predictions
+        return predictions
 
 
 

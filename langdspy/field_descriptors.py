@@ -32,12 +32,12 @@ class FieldDescriptor:
 
     def validate_value(self, input: Input, value: Any) -> bool:
         if self.validator:
-            return self.validator(input, value)
+            return self.validator(input, value, self.kwargs)
         else:
             return True
 
 class InputField(FieldDescriptor):
-    START_TOKEN = "⏎"
+    START_TOKEN = "✅"
 
     def _start_format(self):
         return f"{self.START_TOKEN}{self.name}"
