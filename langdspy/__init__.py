@@ -1,4 +1,4 @@
-from field_descriptors import InputField, OutputField, InputFieldList
+from field_descriptors import InputField, OutputField, InputFieldList, HintField
 from prompt_strategies import PromptSignature, PromptStrategy, DefaultPromptStrategy
 
 from .model import Model, PromptRunner, MultiPromptRunner
