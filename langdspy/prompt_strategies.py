@@ -61,8 +61,6 @@ class PromptStrategy(BaseModel):
                 return output_name
 
 
-
-
 class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
