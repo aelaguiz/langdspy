@@ -24,6 +24,15 @@ def is_one_of(input, output_val, kwargs) -> bool:
     if not kwargs.get('choices'):
         raise ValueError("is_one_of validator requires 'choices' keyword argument")
 
+
+    none_ok = False
+    if kwargs.get('none_ok', False):
+        none_ok = True
+
+    if none_ok and output_val.lower().startswith("none"):
+        logger.debug(f"None is okay and got none")
+        return True
+
     try:
         if not kwargs.get('case_sensitive', False):
             choices = [c.lower() for c in kwargs['choices']]
@@ -37,5 +46,7 @@ def is_one_of(input, output_val, kwargs) -> bool:
 
         return False
     except Exception as e:
-        logger.error(f"Field must be one of {choices}, not {output_val}")
+        logger.error(f"Field must be one of {kwargs.get('choices')}, not {output_val}")
+        import traceback
+        traceback.print_exc()
         return False

@@ -36,6 +36,21 @@ class FieldDescriptor:
         else:
             return True
 
+class HintField(FieldDescriptor):
+    HINT_TOKEN = "💡"
+
+    def __init__(self, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None, **kwargs):
+        # Provide a default value for the name parameter, such as an empty string
+        super().__init__("", desc, formatter, transformer, validator, **kwargs)
+
+    def format_prompt_description(self):
+        return f"{self.HINT_TOKEN} {self.desc}"
+
+
+    def format_prompt_description(self):
+        return f"{self.HINT_TOKEN} {self.desc}"
+
+
 class InputField(FieldDescriptor):
     START_TOKEN = "✅"
 

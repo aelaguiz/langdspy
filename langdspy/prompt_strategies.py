@@ -18,29 +18,33 @@ from langchain_core.runnables.config import (
 )
 import logging
 
-from field_descriptors import InputField, OutputField
+from field_descriptors import InputField, OutputField, HintField
 
 logger = logging.getLogger(__name__)
 
 class PromptSignature(BasePromptTemplate, BaseModel):
-    # Assuming input_variables and output_variables are defined as class attributes
     input_variables: Dict[str, Any] = []
     output_variables: Dict[str, Any] = []
+    hint_variables: Dict[str, Any] = []  # New attribute for hint fields
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
         inputs = {}
         outputs = {}
+        hints = {}  # New dictionary to hold hint fields
 
         for name, attribute in self.__class__.__fields__.items():
             if issubclass(attribute.type_, InputField):
                 inputs[name] = attribute.default
             elif issubclass(attribute.type_, OutputField):
                 outputs[name] = attribute.default
+            elif issubclass(attribute.type_, HintField):  # Check if the field is a HintField
+                hints[name] = attribute.default 
 
         self.input_variables = inputs
         self.output_variables = outputs
+        self.hint_variables = hints 
 
 class PromptStrategy(BaseModel):
     def validate_inputs(self, inputs_dict):
@@ -57,8 +61,6 @@ class PromptStrategy(BaseModel):
                 return output_name
 
 
-
-
 class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
@@ -66,12 +68,25 @@ class DefaultPromptStrategy(PromptStrategy):
         # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
         self.validate_inputs(kwargs)
 
-        prompt = "Follow the following format. Attributes that have values should not be changed or repeated."
+        prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
 
         if len(self.output_variables) > 1:
-            prompt += "Fill any missing attributes and their values."
+            #Provide answers for Solution Effectiveness, Rationale and Confidence
+            # Extract names from output_variables
+            output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
+
+            # Format the instruction with the extracted names
+            prompt += f"Provide answers for {output_field_names}\n"
+
+
+        if self.hint_variables:
+            prompt += "\n"
+
+            for _, hint_field in self.hint_variables.items():
+                prompt += hint_field.format_prompt_description() + "\n"
 
         prompt += "\n\n"
+
         for input_name, input_field in self.input_variables.items():
             # prompt += f"⏎{input_field.name}: {input_field.desc}\n"
             prompt += input_field.format_prompt_description() + "\n"
