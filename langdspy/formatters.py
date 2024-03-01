@@ -16,6 +16,9 @@ def as_docs(docs: List[Document], kwargs: Dict) -> str:
 
     return formatted_docs
 
+def as_int(input, kwargs: Dict) -> str:
+    return f"{input}"
+
 def as_multiline(input, kwargs: Dict) -> str:
     return f"«{input}»"
 
