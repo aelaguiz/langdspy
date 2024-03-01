@@ -18,7 +18,7 @@ from langchain_core.runnables.config import (
 )
 import logging
 
-from field_descriptors import InputField, OutputField, HintField
+from .field_descriptors import InputField, OutputField, HintField
 
 logger = logging.getLogger(__name__)
 
