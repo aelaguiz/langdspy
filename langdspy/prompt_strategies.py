@@ -107,7 +107,7 @@ class DefaultPromptStrategy(PromptStrategy):
                 prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: \n"
                 # prompt += f"\n"
 
-        # logger.debug(f"Formatted prompt: {prompt}")
+        logger.debug(f"Formatted prompt: {prompt}")
         print(prompt)
         return prompt
 
