@@ -3,6 +3,9 @@ from langchain_core.runnables.utils import (
     Input,
     Output
 )
+from enum import Enum
+import validators
+import transformers
 import logging
 
 class FieldDescriptor:
@@ -26,7 +29,7 @@ class FieldDescriptor:
 
     def transform_value(self, value: Any) -> Any:
         if self.transformer:
-            return self.transformer(value)
+            return self.transformer(value, self.kwargs)
         else:
             return value
 
@@ -70,11 +73,15 @@ class InputFieldList(InputField):
 
     def format_prompt_value(self, value):
         res = ""
-        for i, value in enumerate(value):
-            if i > 0:
-                res += "\n"
-            value = self.format_value(value)
-            res += f"{self.START_TOKEN}{self.name} [{i}]: {value}"
+        if len(value) >= 1:
+            for i, value in enumerate(value):
+                if i > 0:
+                    res += "\n"
+                value = self.format_value(value)
+                res += f"{self.START_TOKEN}{self.name} [{i}]: {value}"
+        else:
+            res += f"{self.START_TOKEN}{self.name}: NO VALUES SPECIFIED"
+            
 
         # import traceback
         # traceback.print_stack()
@@ -82,4 +89,28 @@ class InputFieldList(InputField):
         return res
 
 class OutputField(FieldDescriptor):
-    pass
+    START_TOKEN = "🔑"
+
+    def _start_format(self):
+        return f"{self.START_TOKEN}{self.name}"
+        
+    def format_prompt_description(self):
+        return f"{self._start_format()}: {self.desc}"
+
+class OutputFieldEnum(OutputField):
+    def __init__(self, name: str, desc: str, enum: Enum, **kwargs):
+        kwargs['enum'] = enum
+
+        if not 'transformer' in kwargs:
+            kwargs['transformer'] = transformers.as_enum
+
+        if not 'validator' in kwargs:
+            kwargs['validator'] = validators.is_one_of
+            kwargs['choices'] = [e.name for e in enum]
+
+        super().__init__(name, desc, **kwargs)
+
+    def format_prompt_description(self):
+        enum = self.kwargs.get('enum')
+        choices_str = ", ".join([e.name for e in enum])
+        return f"{self.START_TOKEN}{self.name}: One of: {choices_str} - {self.desc}"

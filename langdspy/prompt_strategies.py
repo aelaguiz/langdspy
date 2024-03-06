@@ -65,51 +65,52 @@ class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
     def format_prompt(self, **kwargs: Any) -> str:
-        # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
-        self.validate_inputs(kwargs)
+        try:
+            # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
+            self.validate_inputs(kwargs)
 
-        prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
+            prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
 
-        if len(self.output_variables) > 1:
-            #Provide answers for Solution Effectiveness, Rationale and Confidence
-            # Extract names from output_variables
-            output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
+            if len(self.output_variables) > 1:
+                #Provide answers for Solution Effectiveness, Rationale and Confidence
+                # Extract names from output_variables
+                output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
 
-            # Format the instruction with the extracted names
-            prompt += f"Provide answers for {output_field_names}\n"
+                # Format the instruction with the extracted names
+                prompt += f"Provide answers for {output_field_names}\n"
 
 
-        if self.hint_variables:
-            prompt += "\n"
+            if self.hint_variables:
+                prompt += "\n"
 
-            for _, hint_field in self.hint_variables.items():
-                prompt += hint_field.format_prompt_description() + "\n"
+                for _, hint_field in self.hint_variables.items():
+                    prompt += hint_field.format_prompt_description() + "\n"
 
-        prompt += "\n\n"
+            prompt += "\n\n"
 
-        for input_name, input_field in self.input_variables.items():
-            # prompt += f"⏎{input_field.name}: {input_field.desc}\n"
-            prompt += input_field.format_prompt_description() + "\n"
+            for input_name, input_field in self.input_variables.items():
+                # prompt += f"⏎{input_field.name}: {input_field.desc}\n"
+                prompt += input_field.format_prompt_description() + "\n"
 
-        for output_name, output_field in self.output_variables.items():
-            prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
-
-        prompt += "\n---\n\n"
-
-        for input_name, input_field in self.input_variables.items():
-            prompt += input_field.format_prompt_value(kwargs.get(input_name)) + "\n"
-
-        if len(self.output_variables) == 1:
             for output_name, output_field in self.output_variables.items():
-                prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: \n"
-        else:
-            for output_name, output_field in self.output_variables.items():
-                prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: \n"
-                # prompt += f"\n"
+                prompt += output_field.format_prompt_description() + "\n"
+                # prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
 
-        logger.debug(f"Formatted prompt: {prompt}")
-        print(prompt)
-        return prompt
+            prompt += "\n---\n\n"
+
+            for input_name, input_field in self.input_variables.items():
+                prompt += input_field.format_prompt_value(kwargs.get(input_name)) + "\n"
+
+            for output_name, output_field in self.output_variables.items():
+                prompt += output_field.format_prompt_description() + "\n"
+
+            # logger.debug(f"Formatted prompt: {prompt}")
+            print(prompt)
+            return prompt
+        except:
+            logger.error(f"Failed to format prompt with kwargs: {kwargs}")
+            import traceback
+            traceback.print_exc()
 
     def parse_output_to_fields(self, output: str) -> dict:
         try:

@@ -66,7 +66,16 @@ class PromptRunner(RunnableSerializable):
         res = {}
 
         while max_tries >= 1:
-            res = chain.invoke(input, config=config)
+            try:
+                res = chain.invoke(input, config=config)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logger.error(f"Failed in the LLM layer {e} - sleeping then trying again")
+                time.sleep(random.uniform(0.1, 1.5))
+                max_tries -= 1
+                continue
+
             validation = True
 
             print(res)
