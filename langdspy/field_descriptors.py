@@ -4,8 +4,8 @@ from langchain_core.runnables.utils import (
     Output
 )
 from enum import Enum
-import validators
-import transformers
+from . import validators
+from . import transformers
 import logging
 
 class FieldDescriptor:
