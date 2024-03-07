@@ -97,6 +97,9 @@ class OutputField(FieldDescriptor):
     def format_prompt_description(self):
         return f"{self._start_format()}: {self.desc}"
 
+    def format_prompt(self):
+        return f"{self._start_format()}:"
+
 class OutputFieldEnum(OutputField):
     def __init__(self, name: str, desc: str, enum: Enum, **kwargs):
         kwargs['enum'] = enum
@@ -113,4 +116,4 @@ class OutputFieldEnum(OutputField):
     def format_prompt_description(self):
         enum = self.kwargs.get('enum')
         choices_str = ", ".join([e.name for e in enum])
-        return f"{self.START_TOKEN}{self.name}: One of: {choices_str} - {self.desc}"
+        return f"{self._start_format()}: One of: {choices_str} - {self.desc}"

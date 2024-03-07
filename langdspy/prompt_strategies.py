@@ -102,7 +102,7 @@ class DefaultPromptStrategy(PromptStrategy):
                 prompt += input_field.format_prompt_value(kwargs.get(input_name)) + "\n"
 
             for output_name, output_field in self.output_variables.items():
-                prompt += output_field.format_prompt_description() + "\n"
+                prompt += output_field.format_prompt() + "\n"
 
             # logger.debug(f"Formatted prompt: {prompt}")
             print(prompt)
