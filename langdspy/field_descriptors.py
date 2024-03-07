@@ -78,14 +78,11 @@ class InputFieldList(InputField):
                 if i > 0:
                     res += "\n"
                 value = self.format_value(value)
-                res += f"{self.START_TOKEN}{self.name} [{i}]: {value}"
+                res += f"{self.START_TOKEN} [{i}]: {value}"
         else:
-            res += f"{self.START_TOKEN}{self.name}: NO VALUES SPECIFIED"
+            res += f"{self._start_format()}: NO VALUES SPECIFIED"
             
 
-        # import traceback
-        # traceback.print_stack()
-        # input(f"Hit enter but res: {res}...")
         return res
 
 class OutputField(FieldDescriptor):
@@ -96,6 +93,10 @@ class OutputField(FieldDescriptor):
         
     def format_prompt_description(self):
         return f"{self._start_format()}: {self.desc}"
+
+    def format_prompt_value(self, value):
+        value = self.format_value(value)
+        return f"{self._start_format()}: {value}"
 
     def format_prompt(self):
         return f"{self._start_format()}:"

@@ -65,6 +65,8 @@ class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
     def format_prompt(self, **kwargs: Any) -> str:
+        examples = kwargs.pop('__examples__', None)
+
         try:
             # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
             self.validate_inputs(kwargs)
@@ -96,7 +98,26 @@ class DefaultPromptStrategy(PromptStrategy):
                 prompt += output_field.format_prompt_description() + "\n"
                 # prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
 
+            """
+
+            EXAMPLES GO HERE
+            
+            """
+            if examples:
+                for example_X, example_y in examples:
+                    prompt += "\n---\n\n"
+
+                    for input_name, input_field in self.input_variables.items():
+                        prompt += input_field.format_prompt_value(example_X.get(input_name)) + "\n"
+
+                    for output_name, output_field in self.output_variables.items():
+                        if isinstance(example_y, dict):
+                            prompt += output_field.format_prompt_value(example_y.get(output_name)) + "\n"
+                        else:
+                            prompt += output_field.format_prompt_value(example_y) + "\n"
+
             prompt += "\n---\n\n"
+
 
             for input_name, input_field in self.input_variables.items():
                 prompt += input_field.format_prompt_value(kwargs.get(input_name)) + "\n"

@@ -1,6 +1,8 @@
 from langchain.prompts import BasePromptTemplate  # Assuming this is the correct import path
 import time
+import pickle
 import random
+import itertools
 import re
 from langchain.prompts import FewShotPromptTemplate
 from langchain_core.runnables import RunnableSerializable
@@ -13,6 +15,7 @@ from abc import ABC, abstractmethod
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
+from sklearn.base import BaseEstimator, ClassifierMixin
 import threading
 
 
@@ -155,6 +158,9 @@ class PromptRunner(RunnableSerializable):
 
         max_retries = config.get('max_tries', 3)
 
+        if '__examples__' in config:
+            input['__examples__'] = config['__examples__']
+
         res = self._invoke_with_retries(chain, input, max_retries, config=config)
 
         logger.debug(f"Result: {res}")
@@ -201,12 +207,62 @@ class MultiPromptRunner(PromptRunner):
 
 
 
-class Model(RunnableSerializable):
+class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
     prompt_runners = []
+    kwargs = []
+    best_subset = []
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
+        self.kwargs = kwargs
 
         for field_name, field in self.__fields__.items():
             if issubclass(field.type_, PromptRunner):
                 self.prompt_runners.append((field_name, field.default))
+
+
+    def save(self, filepath):
+        with open(filepath, 'wb') as file:
+            pickle.dump(self, file)
+
+    @classmethod
+    def load(cls, filepath):
+        with open(filepath, 'rb') as file:
+            return pickle.load(file)
+
+    def predict(self, X):
+        y = [self.invoke(item, self.kwargs) for item in X]
+        return y
+
+    def fit(self, X, y, score_func, n_examples=3, example_ratio=0.7):
+        # Split the data into example selection set and scoring set
+        example_size = int(len(X) * example_ratio)
+        example_indices = random.sample(range(len(X)), example_size)
+        scoring_indices = [i for i in range(len(X)) if i not in example_indices]
+        
+        example_X = [X[i] for i in example_indices]
+        example_y = [y[i] for i in example_indices]
+        scoring_X = [X[i] for i in scoring_indices]
+        scoring_y = [y[i] for i in scoring_indices]
+        
+        best_score = 0
+        best_subset = []
+        
+        logger.debug(f"Total number of examples: {n_examples} Example size: {example_size} n_examples: {n_examples} example_X size: {len(example_X)} Scoring size: {len(scoring_X)}")
+
+        for subset in itertools.combinations(zip(example_X, example_y), n_examples):
+            subset_X, subset_y = zip(*subset)
+            logger.debug(f"Subset X Size: {len(subset_X)}")
+            
+            # Predict on the scoring set
+            predicted_slugs = [self.invoke(item, config={
+                **self.kwargs,
+                '__examples__': subset
+            }) for item in scoring_X]
+            score = score_func(scoring_y, predicted_slugs)
+            if score > best_score:
+                best_score = score
+                best_subset = subset
+        
+        self.best_subset = best_subset
+        return self
