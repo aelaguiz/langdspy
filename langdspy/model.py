@@ -2,6 +2,8 @@ from langchain.prompts import BasePromptTemplate  # Assuming this is the correct
 import time
 import pickle
 import random
+from joblib import Parallel, delayed
+from tqdm import tqdm
 import itertools
 import re
 from langchain.prompts import FewShotPromptTemplate
@@ -15,6 +17,7 @@ from abc import ABC, abstractmethod
 from langchain_core.documents import Document
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
+import uuid
 from sklearn.base import BaseEstimator, ClassifierMixin
 import threading
 
@@ -34,7 +37,7 @@ import logging
 from .field_descriptors import InputField, OutputField
 from .prompt_strategies import PromptSignature, PromptStrategy
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("langdspy")
 
 class Prediction(BaseModel):
     class Config:
@@ -52,6 +55,7 @@ class PromptRunner(RunnableSerializable):
 
     def __init__(self, template_class, prompt_strategy):
         super().__init__()
+
         cls_ = type(template_class.__name__, (prompt_strategy, template_class), {})
         self.template = cls_()
     
@@ -70,7 +74,7 @@ class PromptRunner(RunnableSerializable):
 
         while max_tries >= 1:
             try:
-                res = chain.invoke(input, config=config)
+                res = chain.invoke({**input, 'trained_state': config['trained_state'], 'print_prompt': config.get('print_prompt', False)}, config=config)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -81,7 +85,6 @@ class PromptRunner(RunnableSerializable):
 
             validation = True
 
-            print(res)
             logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
 
             # Use the parse_output_to_fields method from the PromptStrategy
@@ -206,34 +209,45 @@ class MultiPromptRunner(PromptRunner):
 
 
 
+class TrainedModelState(BaseModel):
+    examples: Optional[List[Any]] = None
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)  # Initialize BaseModel with kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)  # Dynamically assign attributes
 
 class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
     prompt_runners = []
     kwargs = []
-    best_subset = []
-
-    def __init__(self, **kwargs):
+    trained_state: TrainedModelState = TrainedModelState()
+    n_jobs: int = 1
+    
+    def __init__(self, n_jobs=1, **kwargs):
         super().__init__()
+        self.n_jobs = n_jobs
         self.kwargs = kwargs
-
         for field_name, field in self.__fields__.items():
             if issubclass(field.type_, PromptRunner):
                 self.prompt_runners.append((field_name, field.default))
-
-
+    
     def save(self, filepath):
         with open(filepath, 'wb') as file:
             pickle.dump(self, file)
-
+    
     @classmethod
     def load(cls, filepath):
         with open(filepath, 'rb') as file:
             return pickle.load(file)
+    
 
     def predict(self, X):
-        y = [self.invoke(item, self.kwargs) for item in X]
+        y = Parallel(n_jobs=self.n_jobs, backend='threading')(
+            delayed(self.invoke)(item, {**self.kwargs, 'trained_state': self.trained_state})
+            for item in tqdm(X, desc="Predicting", total=len(X))
+        )
         return y
-
+    
     def fit(self, X, y, score_func, n_examples=3, example_ratio=0.7):
         # Split the data into example selection set and scoring set
         example_size = int(len(X) * example_ratio)
@@ -249,20 +263,32 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         best_subset = []
         
         logger.debug(f"Total number of examples: {n_examples} Example size: {example_size} n_examples: {n_examples} example_X size: {len(example_X)} Scoring size: {len(scoring_X)}")
-
-        for subset in itertools.combinations(zip(example_X, example_y), n_examples):
+        trained_state = TrainedModelState()
+        
+        def evaluate_subset(subset):
             subset_X, subset_y = zip(*subset)
-            logger.debug(f"Subset X Size: {len(subset_X)}")
+            trained_state.examples = subset
             
             # Predict on the scoring set
-            predicted_slugs = [self.invoke(item, config={
-                **self.kwargs,
-                '__examples__': subset
-            }) for item in scoring_X]
+            predicted_slugs = Parallel(n_jobs=self.n_jobs)(
+                delayed(self.invoke)(item, config={
+                    **self.kwargs,
+                    'trained_state': trained_state,
+                })
+                for item in scoring_X
+            )
             score = score_func(scoring_y, predicted_slugs)
-            if score > best_score:
-                best_score = score
-                best_subset = subset
+            logger.debug(f"Training subset scored {score}")
+            return score, subset
         
-        self.best_subset = best_subset
+        results = Parallel(n_jobs=self.n_jobs, backend='threading')(
+            delayed(evaluate_subset)(subset)
+            for subset in tqdm(itertools.combinations(zip(example_X, example_y), n_examples), desc="Evaluating subsets", total=len(list(itertools.combinations(zip(example_X, example_y), n_examples))))
+        )
+        
+        best_score, best_subset = max(results, key=lambda x: x[0])
+        logger.debug(f"Best score: {best_score} with subset: {best_subset}")
+        
+        trained_state.examples = best_subset
+        self.trained_state = trained_state
         return self

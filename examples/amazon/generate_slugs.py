@@ -9,6 +9,14 @@ dotenv.load_dotenv()
 import logging
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("httpx").disabled = True
+logging.getLogger("openai").disabled = True
+logging.getLogger("httpcore.connection").disabled = True
+logging.getLogger("httpcore.http11").disabled = True
+logging.getLogger("openai._base_client").disabled = True
+logging.getLogger("paramiko.transport").disabled = True
+logging.getLogger("anthropic._base_client").disabled = True
+logging.getLogger("langdspy").disabled = True
 
 import langdspy
 import httpx
@@ -46,13 +54,12 @@ class GenerateSlug(langdspy.PromptSignature):
 
 class ProductSlugGenerator(langdspy.Model):
     generate_slug = langdspy.PromptRunner(template_class=GenerateSlug, prompt_strategy=langdspy.DefaultPromptStrategy)
-    
+
     def invoke(self, input, config):
         h1 = input['h1']
         title = input['title']
         product_copy = input['product_copy']
         
-        print(f"Generating slug for: {title}")
         slug_res = self.generate_slug.invoke({'h1': h1, 'title': title, 'product_copy': product_copy}, config=config)
         
         return slug_res.slug
@@ -62,8 +69,8 @@ def cosine_similarity_tfidf(true_slugs, predicted_slugs):
     true_slugs = [slug.lower() for slug in true_slugs]
     predicted_slugs = [slug.lower() for slug in predicted_slugs]
 
-    for i in range(len(true_slugs)):
-        print(f"True: {true_slugs[i]} Predicted: {predicted_slugs[i]}")
+    # for i in range(len(true_slugs)):
+    #     print(f"Actual Slug: {true_slugs[i]} Predicted: {predicted_slugs[i]}")
 
     vectorizer = TfidfVectorizer()
     true_vectors = vectorizer.fit_transform(true_slugs)
@@ -82,23 +89,30 @@ def evaluate_model(model, X, y):
     return accuracy
 
 if __name__ == "__main__":
-    dataset_file = sys.argv[1]
+    # dataset_file = sys.argv[1]
+    dataset_file= "data/amazon_products_split.json"
     with open(dataset_file, 'r') as file:
         dataset = json.load(file)
     
-    X_train = dataset['train']['X'][:10]
-    y_train = dataset['train']['y'][:10]
-    X_test = dataset['test']['X'][:10]
-    y_test = dataset['test']['y'][:10]
+    X_train = dataset['train']['X']
+    y_train = dataset['train']['y']
+    X_test = dataset['test']['X']
+    y_test = dataset['test']['y']
     
     llm = get_llm()
-    model = ProductSlugGenerator(llm=llm)
+    model = ProductSlugGenerator(n_jobs=8, llm=llm, print_prompt=False)
+
+    input("Hit enter to evaluate the untrained model...")
+    before_test_accuracy = evaluate_model(model, X_test, y_test)
+    print(f"Before Training Accuracy: {before_test_accuracy}")
     
+    input("Hit enter to train the model...")
     # # Train the model (placeholder)
     model.fit(X_train, y_train, score_func=slug_similarity, n_examples=2)
     # model.predict(X_test)
     
+    input("Hit enter to evaluate the trained model...")
     # Evaluate the model on the test set
     test_accuracy = evaluate_model(model, X_test, y_test)
-
-    print(f"Test Accuracy: {test_accuracy}")
+    print(f"Before Training Accuracy: {before_test_accuracy}")
+    print(f"After Training Accuracy: {test_accuracy}")

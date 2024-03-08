@@ -6,7 +6,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra
 from langchain_core.pydantic_v1 import validator
 from langchain_core.language_models import BaseLLM
-from typing import Any, Dict, List, Type, Optional, Callable
+from typing import Any, Dict, List, Type, Optional, Callable, Tuple
+import uuid
 from abc import ABC, abstractmethod
 from langchain_core.documents import Document
 from langchain_core.runnables.utils import (
@@ -20,15 +21,20 @@ import logging
 
 from .field_descriptors import InputField, OutputField, HintField
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("langdspy")
 
 class PromptSignature(BasePromptTemplate, BaseModel):
     input_variables: Dict[str, Any] = []
     output_variables: Dict[str, Any] = []
     hint_variables: Dict[str, Any] = []  # New attribute for hint fields
+    instance_id: str = Field(default_factory=str)
+
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        self.instance_id = str(uuid.uuid4())  # Generate a unique identifier
+
 
         inputs = {}
         outputs = {}
@@ -47,6 +53,8 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.hint_variables = hints 
 
 class PromptStrategy(BaseModel):
+    best_subset: List[Any] = []
+
     def validate_inputs(self, inputs_dict):
         if not set(inputs_dict.keys()) == set(self.input_variables.keys()):
             logger.error(f"Input keys do not match expected input keys {inputs_dict.keys()} {self.input_variables.keys()}")
@@ -65,7 +73,8 @@ class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
     def format_prompt(self, **kwargs: Any) -> str:
-        examples = kwargs.pop('__examples__', None)
+        trained_state = kwargs.pop('trained_state', None)
+        print_prompt = kwargs.pop('print_prompt', False)
 
         try:
             # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
@@ -103,8 +112,8 @@ class DefaultPromptStrategy(PromptStrategy):
             EXAMPLES GO HERE
             
             """
-            if examples:
-                for example_X, example_y in examples:
+            if trained_state and trained_state.examples:
+                for example_X, example_y in trained_state.examples:
                     prompt += "\n---\n\n"
 
                     for input_name, input_field in self.input_variables.items():
@@ -126,7 +135,9 @@ class DefaultPromptStrategy(PromptStrategy):
                 prompt += output_field.format_prompt() + "\n"
 
             # logger.debug(f"Formatted prompt: {prompt}")
-            print(prompt)
+
+            if print_prompt:
+                print(prompt)
             return prompt
         except:
             logger.error(f"Failed to format prompt with kwargs: {kwargs}")
@@ -174,30 +185,3 @@ class DefaultPromptStrategy(PromptStrategy):
             raise e
 
 
-
-class ChainOfThought(PromptStrategy):
-    """
-
-    """
-    def format_prompt(self, **kwargs: Any) -> str:
-        self.validate_inputs(kwargs)
-
-        ## IMPLEMENT THIS
-        
-        return prompt
-
-    def parse_output_to_fields(self, output: str) -> dict:
-        """
-        Parses the provided output string into a dictionary with keys as field names 
-        and values as the corresponding field contents, using regex.
-
-        Parameters:
-        output (str): The string output to be parsed.
-
-        Returns:
-        dict: A dictionary where each key is an output field name and each value is the content of that field.
-        """
-
-        ### IMPLEMENT THIS
-
-        return parsed_fields
