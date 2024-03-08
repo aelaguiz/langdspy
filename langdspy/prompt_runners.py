@@ -60,7 +60,7 @@ class PromptRunner(RunnableSerializable):
 
         while max_tries >= 1:
             try:
-                res = chain.invoke({**input, 'trained_state': config['trained_state'], 'print_prompt': config.get('print_prompt', False)}, config=config)
+                res = chain.invoke({**input, 'trained_state': config.get('trained_state', None), 'print_prompt': config.get('print_prompt', False)}, config=config)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
