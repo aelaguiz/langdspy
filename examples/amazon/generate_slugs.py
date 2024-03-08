@@ -84,12 +84,15 @@ def slug_similarity(true_slugs, predicted_slugs):
     return average_similarity
 
 def evaluate_model(model, X, y):
-    predicted_slugs = model.predict(X)
+    predicted_slugs = model.predict(X, llm)
     accuracy = slug_similarity(y, predicted_slugs)
     return accuracy
 
+llm = get_llm()
+
 if __name__ == "__main__":
     # dataset_file = sys.argv[1]
+    output_path = sys.argv[1]
     dataset_file= "data/amazon_products_split.json"
     with open(dataset_file, 'r') as file:
         dataset = json.load(file)
@@ -99,20 +102,25 @@ if __name__ == "__main__":
     X_test = dataset['test']['X']
     y_test = dataset['test']['y']
     
-    llm = get_llm()
-    model = ProductSlugGenerator(n_jobs=8, llm=llm, print_prompt=False)
+    model = ProductSlugGenerator(n_jobs=4, print_prompt=False)
 
-    input("Hit enter to evaluate the untrained model...")
-    before_test_accuracy = evaluate_model(model, X_test, y_test)
-    print(f"Before Training Accuracy: {before_test_accuracy}")
-    
-    input("Hit enter to train the model...")
-    # # Train the model (placeholder)
-    model.fit(X_train, y_train, score_func=slug_similarity, n_examples=2, n_iter=100)
-    # model.predict(X_test)
-    
+    before_test_accuracy = None
+    if os.path.exists(output_path):
+        model.load(output_path)
+    else:
+        input("Hit enter to evaluate the untrained model...")
+        before_test_accuracy = evaluate_model(model, X_test, y_test)
+        print(f"Before Training Accuracy: {before_test_accuracy}")
+        
+        input("Hit enter to train the model...")
+        # # Train the model (placeholder)
+        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=2, n_iter=100)
+        # model.predict(X_test)
+        
     input("Hit enter to evaluate the trained model...")
     # Evaluate the model on the test set
     test_accuracy = evaluate_model(model, X_test, y_test)
     print(f"Before Training Accuracy: {before_test_accuracy}")
     print(f"After Training Accuracy: {test_accuracy}")
+
+    model.save(output_path)

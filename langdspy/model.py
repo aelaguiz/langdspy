@@ -1,6 +1,6 @@
 from langchain.prompts import BasePromptTemplate  # Assuming this is the correct import path
 import time
-import pickle
+import dill as pickle
 import random
 from joblib import Parallel, delayed
 from tqdm import tqdm
@@ -233,22 +233,21 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
     
     def save(self, filepath):
         with open(filepath, 'wb') as file:
-            pickle.dump(self, file)
+            pickle.dump(self.trained_state, file)
     
-    @classmethod
-    def load(cls, filepath):
+    def load(self, filepath):
         with open(filepath, 'rb') as file:
-            return pickle.load(file)
+            self.trained_state = pickle.load(file)
     
 
-    def predict(self, X):
+    def predict(self, X, llm):
         y = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(self.invoke)(item, {**self.kwargs, 'trained_state': self.trained_state})
+            delayed(self.invoke)(item, {**self.kwargs, 'trained_state': self.trained_state, 'llm': llm})
             for item in tqdm(X, desc="Predicting", total=len(X))
         )
         return y
 
-    def fit(self, X, y, score_func, n_examples=3, example_ratio=0.7, n_iter=None):
+    def fit(self, X, y, score_func, llm, n_examples=3, example_ratio=0.7, n_iter=None):
         # Split the data into example selection set and scoring set
         example_size = int(len(X) * example_ratio)
         example_indices = random.sample(range(len(X)), example_size)
@@ -274,6 +273,7 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
                 delayed(self.invoke)(item, config={
                     **self.kwargs,
                     'trained_state': trained_state,
+                    'llm': llm
                 })
                 for item in scoring_X
             )
