@@ -4,9 +4,8 @@ from langchain_core.runnables.utils import (
     Output
 )
 from enum import Enum
-import validators
-import transformers
-import logging
+from . import validators
+from . import transformers
 
 class FieldDescriptor:
     def __init__(self, name:str, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None, **kwargs):

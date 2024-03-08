@@ -46,6 +46,16 @@ if __name__ == "__main__":
     model.save(output_path)
 ```
 
+## Quick start
+
+```bash
+git clone https://github.com/aelaguiz/langdspy
+cd langdspy
+pip install poetry
+poetry install
+poetry run test
+```
+
 ### Roadmap
 
 * Unit tests
