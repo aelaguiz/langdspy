@@ -2,7 +2,7 @@ import json
 import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("langdspy")
 
 
 def is_json_list(input, output_val, kwargs) -> bool:
