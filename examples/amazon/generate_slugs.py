@@ -16,7 +16,7 @@ logging.getLogger("httpcore.http11").disabled = True
 logging.getLogger("openai._base_client").disabled = True
 logging.getLogger("paramiko.transport").disabled = True
 logging.getLogger("anthropic._base_client").disabled = True
-logging.getLogger("langdspy").disabled = True
+# logging.getLogger("langdspy").disabled = True
 
 import langdspy
 import httpx
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     
     input("Hit enter to train the model...")
     # # Train the model (placeholder)
-    model.fit(X_train, y_train, score_func=slug_similarity, n_examples=2)
+    model.fit(X_train, y_train, score_func=slug_similarity, n_examples=2, n_iter=100)
     # model.predict(X_test)
     
     input("Hit enter to evaluate the trained model...")

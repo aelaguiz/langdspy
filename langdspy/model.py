@@ -85,7 +85,7 @@ class PromptRunner(RunnableSerializable):
 
             validation = True
 
-            logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
+            # logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
@@ -96,11 +96,11 @@ class PromptRunner(RunnableSerializable):
                 traceback.print_exc()
                 logger.error(f"Failed to parse output for prompt runner {self.template.__class__.__name__}")
                 validation = False
-            logger.debug(f"Parsed output: {parsed_output}")
+            # logger.debug(f"Parsed output: {parsed_output}")
 
             len_parsed_output = len(parsed_output.keys())
             len_output_variables = len(self.template.output_variables.keys())
-            logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
+            # logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
 
             if len(parsed_output.keys()) != len(self.template.output_variables.keys()):
                 logger.error(f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}")
@@ -166,7 +166,7 @@ class PromptRunner(RunnableSerializable):
 
         res = self._invoke_with_retries(chain, input, max_retries, config=config)
 
-        logger.debug(f"Result: {res}")
+        # logger.debug(f"Result: {res}")
 
         prediction_data = {**input, **res}
 
@@ -247,8 +247,8 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
             for item in tqdm(X, desc="Predicting", total=len(X))
         )
         return y
-    
-    def fit(self, X, y, score_func, n_examples=3, example_ratio=0.7):
+
+    def fit(self, X, y, score_func, n_examples=3, example_ratio=0.7, n_iter=None):
         # Split the data into example selection set and scoring set
         example_size = int(len(X) * example_ratio)
         example_indices = random.sample(range(len(X)), example_size)
@@ -281,9 +281,19 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
             logger.debug(f"Training subset scored {score}")
             return score, subset
         
+        # Generate all possible subsets
+        all_subsets = list(itertools.combinations(zip(example_X, example_y), n_examples))
+        
+        # Randomize the order of subsets
+        random.shuffle(all_subsets)
+        
+        # Limit the number of iterations if n_iter is specified
+        if n_iter is not None:
+            all_subsets = all_subsets[:n_iter]
+        
         results = Parallel(n_jobs=self.n_jobs, backend='threading')(
             delayed(evaluate_subset)(subset)
-            for subset in tqdm(itertools.combinations(zip(example_X, example_y), n_examples), desc="Evaluating subsets", total=len(list(itertools.combinations(zip(example_X, example_y), n_examples))))
+            for subset in tqdm(all_subsets, desc="Evaluating subsets", total=len(all_subsets))
         )
         
         best_score, best_subset = max(results, key=lambda x: x[0])
@@ -292,3 +302,4 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         trained_state.examples = best_subset
         self.trained_state = trained_state
         return self
+ 
