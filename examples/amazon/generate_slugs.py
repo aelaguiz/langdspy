@@ -44,11 +44,11 @@ def get_llm():
 
 
 class GenerateSlug(langdspy.PromptSignature):
+    hint_slug = langdspy.HintField(desc="Generate a URL-friendly slug based on the provided H1, title, and product copy. The slug should be lowercase, use hyphens to separate words, and not exceed 50 characters.")
+    
     h1 = langdspy.InputField(name="H1", desc="The H1 heading of the product page")
     title = langdspy.InputField(name="Title", desc="The title of the product page")
     product_copy = langdspy.InputField(name="Product Copy", desc="The product description or copy")
-    
-    hint_slug = langdspy.HintField(desc="Generate a URL-friendly slug based on the provided H1, title, and product copy. The slug should be lowercase, use hyphens to separate words, and not exceed 50 characters.")
     
     slug = langdspy.OutputField(name="Slug", desc="The generated URL-friendly slug")
 
@@ -91,7 +91,6 @@ def evaluate_model(model, X, y):
 llm = get_llm()
 
 if __name__ == "__main__":
-    # dataset_file = sys.argv[1]
     output_path = sys.argv[1]
     dataset_file= "data/amazon_products_split.json"
     with open(dataset_file, 'r') as file:
@@ -102,7 +101,7 @@ if __name__ == "__main__":
     X_test = dataset['test']['X']
     y_test = dataset['test']['y']
     
-    model = ProductSlugGenerator(n_jobs=4, print_prompt=False)
+    model = ProductSlugGenerator(n_jobs=4, print_prompt=True)
 
     before_test_accuracy = None
     if os.path.exists(output_path):
@@ -113,9 +112,7 @@ if __name__ == "__main__":
         print(f"Before Training Accuracy: {before_test_accuracy}")
         
         input("Hit enter to train the model...")
-        # # Train the model (placeholder)
         model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=2, n_iter=100)
-        # model.predict(X_test)
         
     input("Hit enter to evaluate the trained model...")
     # Evaluate the model on the test set
