@@ -38,9 +38,13 @@ class Prediction(BaseModel):
 class PromptRunner(RunnableSerializable):
     template: PromptSignature = None
     # prompt_history: List[str] = [] - Was trying to find a way to make a list of prompts for inspection 
+    model_kwargs: Dict[str, Any] = {}
+    kwargs: Dict[str, Any] = {}
 
-    def __init__(self, template_class, prompt_strategy):
+    def __init__(self, template_class, prompt_strategy, **kwargs):
         super().__init__()
+
+        self.kwargs = kwargs
 
         cls_ = type(template_class.__name__, (prompt_strategy, template_class), {})
         self.template = cls_()
@@ -50,6 +54,10 @@ class PromptRunner(RunnableSerializable):
         cls, value: PromptSignature
     ) -> PromptSignature:
         return value
+
+        
+    def set_model_kwargs(self, model_kwargs):
+        self.model_kwargs.update(model_kwargs)
     
     def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
         total_max_tries = max_tries
@@ -60,7 +68,8 @@ class PromptRunner(RunnableSerializable):
 
         while max_tries >= 1:
             try:
-                res = chain.invoke({**input, 'trained_state': config.get('trained_state', None), 'print_prompt': config.get('print_prompt', False)}, config=config)
+                kwargs = {**self.model_kwargs, **self.kwargs}
+                res = chain.invoke({**input, 'trained_state': config.get('trained_state', None), 'print_prompt': config.get('print_prompt', False), **kwargs}, config=config)
             except Exception as e:
                 import traceback
                 traceback.print_exc()

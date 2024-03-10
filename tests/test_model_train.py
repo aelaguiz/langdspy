@@ -15,7 +15,7 @@ def model():
 
 @pytest.fixture
 def llm():
-    return get_llm()
+    return FakeLLM()
 
 @pytest.fixture
 def dataset():
@@ -35,6 +35,19 @@ def dataset():
             'y': ['product-3', 'product-4']
         }
     }
+
+
+from langchain.chat_models.base import BaseChatModel
+
+class FakeLLM(BaseChatModel):
+    def invoke(self, *args, **kwargs):
+        return "INVOKED"
+
+    def _generate(self, *args, **kwargs):
+        return None
+
+    def _llm_type(self) -> str:
+        return "fake"
 
 def test_invoke_untrained(model, llm, dataset):
     input_data = dataset['test']['X'][0]
