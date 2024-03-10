@@ -117,7 +117,7 @@ if __name__ == "__main__":
         print(f"Before Training Accuracy: {before_test_accuracy}")
         
         input("Hit enter to train the model...")
-        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=3, n_iter=10)
+        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=3, n_iter=500)
         
     input("Hit enter to evaluate the trained model...")
     # Evaluate the model on the test set
