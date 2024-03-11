@@ -73,6 +73,7 @@ class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
     def format_prompt(self, **kwargs: Any) -> str:
+        # print(f"Formatting prompt {kwargs}")
         trained_state = kwargs.pop('trained_state', None)
         print_prompt = kwargs.pop('print_prompt', False)
 

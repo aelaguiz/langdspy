@@ -16,7 +16,7 @@ logging.getLogger("httpcore.http11").disabled = True
 logging.getLogger("openai._base_client").disabled = True
 logging.getLogger("paramiko.transport").disabled = True
 logging.getLogger("anthropic._base_client").disabled = True
-logging.getLogger("langdspy").disabled = True
+# logging.getLogger("langdspy").disabled = True
 
 import langdspy
 import httpx
@@ -34,39 +34,49 @@ def get_llm():
     OPENAI_TEMPERATURE = os.getenv("OPENAI_TEMPERATURE")
     FAST_MODEL_PROVIDER = os.getenv("FAST_MODEL_PROVIDER")
     FAST_ANTHROPIC_MODEL = os.getenv("FAST_ANTHROPIC_MODEL")
-    FAST_GROQ_MODEL = os.getenv("FAST_GROQ_MODEL")
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
     if FAST_MODEL_PROVIDER.lower() == "anthropic":
         _fast_llm = ChatAnthropic(model_name=FAST_ANTHROPIC_MODEL, temperature=OPENAI_TEMPERATURE, anthropic_api_key=ANTHROPIC_API_KEY)
-    elif FAST_MODEL_PROVIDER.lower() == "openai":
-        _fast_llm = ChatOpenAI(model_name=FAST_OPENAI_MODEL, temperature=OPENAI_TEMPERATURE, timeout=httpx.Timeout(15.0, read=60.0, write=10.0, connect=3.0), max_retries=5)
-    elif FAST_MODEL_PROVIDER.lower() == "groq":
-        _fast_llm = ChatOpenAI(openai_api_base="https://api.groq.com/openai/v1", model_name=FAST_GROQ_MODEL, temperature=OPENAI_TEMPERATURE, timeout=httpx.Timeout(15.0, read=60.0, write=10.0, connect=3.0), max_retries=5, api_key=GROQ_API_KEY)
+    else:
+        _fast_llm = ChatOpenAI(model_name=FAST_OPENAI_MODEL, temperature=OPENAI_TEMPERATURE, timeout=httpx.Timeout(15.0, read=60.0, write=10.0, connect=3.0), max_retries=2)
 
     return _fast_llm
 
 
 class GenerateSlug(langdspy.PromptSignature):
-    hint_slug = langdspy.HintField(desc="Generate a URL-friendly slug based on the provided H1, title, and product copy. The slug should be lowercase, use hyphens to separate words, and not exceed 50 characters.")
+    hint_slug = langdspy.HintField(desc="Generate a URL-friendly slug based on the provided title, and product copy. The slug should be lowercase, use hyphens to separate words, and not exceed 50 characters.")
     
-    h1 = langdspy.InputField(name="H1", desc="The H1 heading of the product page")
     title = langdspy.InputField(name="Title", desc="The title of the product page")
     product_copy = langdspy.InputField(name="Product Copy", desc="The product description or copy")
     
     slug = langdspy.OutputField(name="Slug", desc="The generated URL-friendly slug")
 
+class GenerateHeading(langdspy.PromptSignature):
+    hint_slug = langdspy.HintField(desc="Generate an SEO friendly h1 based on the title, slug and product copy. The h1 should be a sentence that includes the title and relevant parts of the product copy, and is less than 100 characters.")
+    
+    title = langdspy.InputField(name="Title", desc="The title of the product page")
+    product_copy = langdspy.InputField(name="Product Copy", desc="The product description or copy")
+    slug = langdspy.InputField(name="Slug", desc="The URL-friendly slug")
+
+    h1 = langdspy.OutputField(name="H1", desc="The generated SEO friendly H1 heading of the product page")
+
 class ProductSlugGenerator(langdspy.Model):
     generate_slug = langdspy.PromptRunner(template_class=GenerateSlug, prompt_strategy=langdspy.DefaultPromptStrategy)
+    generate_heading = langdspy.PromptRunner(template_class=GenerateHeading, prompt_strategy=langdspy.DefaultPromptStrategy)
 
-    def invoke(self, input_dict, config):
-        h1 = input_dict['h1']
-        title = input_dict['title']
-        product_copy = input_dict['product_copy']
+    def invoke(self, input, config):
+        h1 = input['h1']
+        title = input['title']
+        product_copy = input['product_copy']
         
-        slug_res = self.generate_slug.invoke({'h1': h1, 'title': title, 'product_copy': product_copy}, config=config)
+        slug_res = self.generate_slug.invoke({'title': title, 'product_copy': product_copy}, config=config)
+
+        heading_res = self.generate_heading.invoke({'title': title, 'product_copy': product_copy, 'slug': slug_res.slug}, config=config)
         
-        return slug_res.slug
+        return {
+            'slug': slug_res.slug,
+            'h1': heading_res.h1
+        }
 
 def cosine_similarity_tfidf(true_slugs, predicted_slugs):
     # Convert slugs to lowercase
@@ -105,8 +115,7 @@ if __name__ == "__main__":
     X_test = dataset['test']['X']
     y_test = dataset['test']['y']
     
-    model = ProductSlugGenerator(n_jobs=4, print_prompt=False)
-    # model.generate_slug.set_model_kwargs({'print_prompt': True})
+    model = ProductSlugGenerator(n_jobs=4, print_prompt=True)
 
     before_test_accuracy = None
     if os.path.exists(output_path):
@@ -117,7 +126,7 @@ if __name__ == "__main__":
         print(f"Before Training Accuracy: {before_test_accuracy}")
         
         input("Hit enter to train the model...")
-        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=3, n_iter=500)
+        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=2, n_iter=100)
         
     input("Hit enter to evaluate the trained model...")
     # Evaluate the model on the test set

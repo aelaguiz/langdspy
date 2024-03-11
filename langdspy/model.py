@@ -49,10 +49,15 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
     def __init__(self, n_jobs=1, **kwargs):
         super().__init__()
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
+        self.kwargs = {**kwargs, 'trained_state': self.trained_state}
         for field_name, field in self.__fields__.items():
             if issubclass(field.type_, PromptRunner):
                 self.prompt_runners.append((field_name, field.default))
+
+                field.default.set_model_kwargs(self.kwargs)
+                # Necessary since pydantic creates a new version of the object
+                setattr(self, field_name, field.default)
+
     
     def save(self, filepath):
         with open(filepath, 'wb') as file:
@@ -85,17 +90,16 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         best_subset = []
         
         logger.debug(f"Total number of examples: {n_examples} Example size: {example_size} n_examples: {n_examples} example_X size: {len(example_X)} Scoring size: {len(scoring_X)}")
-        trained_state = TrainedModelState()
         
         def evaluate_subset(subset):
             subset_X, subset_y = zip(*subset)
-            trained_state.examples = subset
+            self.trained_state.examples = subset
             
             # Predict on the scoring set
             predicted_slugs = Parallel(n_jobs=self.n_jobs)(
                 delayed(self.invoke)(item, config={
                     **self.kwargs,
-                    'trained_state': trained_state,
+                    'trained_state': self.trained_state,
                     'llm': llm
                 })
                 for item in scoring_X
@@ -122,6 +126,5 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         best_score, best_subset = max(results, key=lambda x: x[0])
         logger.debug(f"Best score: {best_score} with subset: {best_subset}")
         
-        trained_state.examples = best_subset
-        self.trained_state = trained_state
+        self.trained_state.examples = best_subset
         return self
