@@ -69,6 +69,7 @@ class PromptRunner(RunnableSerializable):
         while max_tries >= 1:
             try:
                 kwargs = {**self.model_kwargs, **self.kwargs}
+                # print(f"PromptRunner invoke with input {input} and kwargs {kwargs} and config {config}")
                 res = chain.invoke({**input, 'trained_state': config.get('trained_state', None), 'print_prompt': config.get('print_prompt', False), **kwargs}, config=config)
             except Exception as e:
                 import traceback

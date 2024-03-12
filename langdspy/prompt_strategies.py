@@ -173,8 +173,8 @@ class DefaultPromptStrategy(PromptStrategy):
                 if not first_value:
                     # logger.debug(f"NO MATCHES - setting last field to output: {lines[-1]}")
                     parsed_fields[list(self.output_variables.keys())[0]] = lines[-1]
-                else:
-                    logger.error(f"NO MATCHES - setting last field to output: {lines[-1]}")
+                # else:
+                #     logger.error(f"NO MATCHES - setting last field to output: {lines[-1]}")
 
             # logger.debug(f"Parsed fields: {parsed_fields}")
 

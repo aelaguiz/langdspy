@@ -104,7 +104,7 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
                 })
                 for item in scoring_X
             )
-            score = score_func(scoring_y, predicted_slugs)
+            score = score_func(scoring_X, scoring_y, predicted_slugs)
             logger.debug(f"Training subset scored {score}")
             return score, subset
         

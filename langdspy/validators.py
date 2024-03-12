@@ -38,10 +38,10 @@ def is_one_of(input, output_val, kwargs) -> bool:
             choices = [c.lower() for c in kwargs['choices']]
             output_val = output_val.lower()
 
-        logger.debug(f"Checking if {output_val} is one of {choices}")
+        # logger.debug(f"Checking if {output_val} is one of {choices}")
         for choice in choices:
             if output_val.startswith(choice):
-                logger.debug(f"Matched {output_val} to {choice}")
+                # logger.debug(f"Matched {output_val} to {choice}")
                 return True
 
         return False
