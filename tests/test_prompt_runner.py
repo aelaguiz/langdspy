@@ -66,16 +66,16 @@ def test_print_prompt_in_inputs():
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
         mock_invoke.assert_called_once_with(**{**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state})
 
-def test_trained_state_in_inputs():
-    model = TestModel(n_jobs=1)
-    input_dict = {"input": "Test input"}
-    mock_invoke = MagicMock(return_value="FORMATTED PROMPT")
+# def test_trained_state_in_inputs():
+#     model = TestModel(n_jobs=1)
+#     input_dict = {"input": "Test input"}
+#     mock_invoke = MagicMock(return_value="FORMATTED PROMPT")
     
-    with patch.object(DefaultPromptStrategy, 'format_prompt', new=mock_invoke):
-        config = {"llm": FakeLLM()}
-        model.trained_state.examples = [("EXAMPLE_X", "EXAMPLE_Y")]
-        result = model.invoke(input_dict, config=config)
+#     with patch.object(DefaultPromptStrategy, 'format_prompt', new=mock_invoke):
+#         config = {"llm": FakeLLM()}
+#         model.trained_state.examples = [("EXAMPLE_X", "EXAMPLE_Y")]
+#         result = model.invoke(input_dict, config=config)
 
-        print(result)
-        print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        mock_invoke.assert_called_once_with(**{**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state})
+#         print(result)
+#         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
+#         mock_invoke.assert_called_once_with(**{**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state})

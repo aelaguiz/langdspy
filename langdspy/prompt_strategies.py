@@ -76,6 +76,9 @@ class DefaultPromptStrategy(PromptStrategy):
         # print(f"Formatting prompt {kwargs}")
         trained_state = kwargs.pop('trained_state', None)
         print_prompt = kwargs.pop('print_prompt', False)
+        use_training = kwargs.pop('use_training', True)
+        # print(f"Formatting prompt with trained_state {trained_state} and print_prompt {print_prompt} and kwargs {kwargs}")
+        # print(f"Formatting prompt with use_training {use_training}")
 
         try:
             # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
@@ -113,7 +116,7 @@ class DefaultPromptStrategy(PromptStrategy):
             EXAMPLES GO HERE
             
             """
-            if trained_state and trained_state.examples:
+            if trained_state and trained_state.examples and use_training:
                 for example_X, example_y in trained_state.examples:
                     prompt += "\n---\n\n"
 

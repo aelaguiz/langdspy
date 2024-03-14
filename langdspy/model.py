@@ -66,6 +66,11 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
     def load(self, filepath):
         with open(filepath, 'rb') as file:
             self.trained_state = pickle.load(file)
+            setattr(self, 'trained_state', self.trained_state)
+            self.kwargs = {**self.kwargs, 'trained_state': self.trained_state}
+
+            for runner_name, runner in self.prompt_runners:
+                runner.set_model_kwargs(self.kwargs)
     
 
     def predict(self, X, llm):
