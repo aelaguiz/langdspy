@@ -192,12 +192,9 @@ class DefaultPromptStrategy(PromptStrategy):
         # print(f"Formatting prompt {kwargs}")
         prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
 
-        if len(self.output_variables) > 1:
-            #Provide answers for Solution Effectiveness, Rationale and Confidence
-            # Extract names from output_variables
-            output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
-            # Format the instruction with the extracted names
-            prompt += f"Provide answers for {output_field_names}\n"
+        output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
+        # Format the instruction with the extracted names
+        prompt += f"Provide answers for {output_field_names}. Follow the XML output format.\n"
 
         if self.hint_variables:
             prompt += "\n<hints>\n"
