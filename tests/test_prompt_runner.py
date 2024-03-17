@@ -43,7 +43,7 @@ from unittest.mock import patch
 
 from langchain.chat_models.base import BaseChatModel
 
-class FakeLLM(BaseChatModel):
+class TestLLM(BaseChatModel):
     def invoke(self, *args, **kwargs):
         return "INVOKED"
 
@@ -51,7 +51,7 @@ class FakeLLM(BaseChatModel):
         return None
 
     def _llm_type(self) -> str:
-        return "fake"
+        return "test"
 
 def test_print_prompt_in_inputs():
     model = TestModel(n_jobs=1, print_prompt="TEST")
@@ -59,12 +59,12 @@ def test_print_prompt_in_inputs():
     mock_invoke = MagicMock(return_value="FORMATTED PROMPT")
     
     with patch.object(DefaultPromptStrategy, 'format_prompt', new=mock_invoke):
-        config = {"llm": FakeLLM()}
+        config = {"llm": TestLLM(), "llm_type": "test"}
         result = model.invoke(input_dict, config=config)
 
         print(result)
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': True}
+        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': True, 'llm_type': "test"}
         print(f"Expecting call {call_args}")
         mock_invoke.assert_called_once_with(**call_args)
 
@@ -74,13 +74,13 @@ def test_trained_state_in_inputs():
     mock_invoke = MagicMock(return_value="FORMATTED PROMPT")
     
     with patch.object(DefaultPromptStrategy, 'format_prompt', new=mock_invoke):
-        config = {"llm": FakeLLM()}
+        config = {"llm": TestLLM(), "llm_type": "test"}
         model.trained_state.examples = [("EXAMPLE_X", "EXAMPLE_Y")]
         result = model.invoke(input_dict, config=config)
 
         print(result)
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': True}
+        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': True,  'llm_type': "test"}
         print(f"Expecting call {call_args}")
         mock_invoke.assert_called_once_with(**call_args)
 
@@ -90,12 +90,12 @@ def test_use_training():
     mock_invoke = MagicMock(return_value="FORMATTED PROMPT")
     
     with patch.object(DefaultPromptStrategy, 'format_prompt', new=mock_invoke):
-        config = {"llm": FakeLLM(), "use_training": False}
+        config = {"llm": TestLLM(), "use_training": False, "llm_type": "test"}
         model.trained_state.examples = [("EXAMPLE_X", "EXAMPLE_Y")]
         result = model.invoke(input_dict, config=config)
 
         print(result)
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': False}
+        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': False,  'llm_type': "test"}
         print(f"Expecting call {call_args}")
         mock_invoke.assert_called_once_with(**call_args)

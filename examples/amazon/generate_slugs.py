@@ -16,7 +16,7 @@ logging.getLogger("httpcore.http11").disabled = True
 logging.getLogger("openai._base_client").disabled = True
 logging.getLogger("paramiko.transport").disabled = True
 logging.getLogger("anthropic._base_client").disabled = True
-logging.getLogger("langdspy").disabled = True
+# logging.getLogger("langdspy").disabled = True
 
 import langdspy
 import httpx
@@ -105,24 +105,24 @@ if __name__ == "__main__":
     X_test = dataset['test']['X']
     y_test = dataset['test']['y']
     
-    model = ProductSlugGenerator(n_jobs=4, print_prompt=False)
+    model = ProductSlugGenerator(n_jobs=1, print_prompt=True)
     # model.generate_slug.set_model_kwargs({'print_prompt': True})
 
     before_test_accuracy = None
     if os.path.exists(output_path):
         model.load(output_path)
     else:
-        input("Hit enter to evaluate the untrained model...")
+        # input("Hit enter to evaluate the untrained model...")
         before_test_accuracy = evaluate_model(model, X_test, y_test)
         print(f"Before Training Accuracy: {before_test_accuracy}")
         
-        input("Hit enter to train the model...")
-        model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=3, n_iter=500)
+    #     input("Hit enter to train the model...")
+    #     model.fit(X_train, y_train, score_func=slug_similarity, llm=llm, n_examples=3, n_iter=500)
         
-    input("Hit enter to evaluate the trained model...")
-    # Evaluate the model on the test set
-    test_accuracy = evaluate_model(model, X_test, y_test)
-    print(f"Before Training Accuracy: {before_test_accuracy}")
-    print(f"After Training Accuracy: {test_accuracy}")
+    # input("Hit enter to evaluate the trained model...")
+    # # Evaluate the model on the test set
+    # test_accuracy = evaluate_model(model, X_test, y_test)
+    # print(f"Before Training Accuracy: {before_test_accuracy}")
+    # print(f"After Training Accuracy: {test_accuracy}")
 
     model.save(output_path)
