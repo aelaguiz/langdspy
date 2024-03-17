@@ -77,7 +77,7 @@ class PromptStrategy(BaseModel):
             # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
             self.validate_inputs(kwargs)
 
-            logger.debug(f"PromptStrategy format_prompt with kwargs: {kwargs}")
+            # logger.debug(f"PromptStrategy format_prompt with kwargs: {kwargs}")
 
             if llm_type == 'openai':
                 prompt = self._format_openai_prompt(trained_state, use_training, **kwargs)

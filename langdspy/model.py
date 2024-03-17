@@ -80,6 +80,30 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         )
         return y
 
+    def get_prompt_history(self):
+        prompt_history = []
+        for runner_name, runner in self.prompt_runners:
+            runner_history = runner.get_prompt_history()
+            for entry in runner_history:
+                prompt_history.append((runner_name, entry))
+        return prompt_history
+
+    def get_failed_prompts(self):
+        failed_prompts = []
+        prompt_history = self.get_prompt_history()
+        for runner_name, entry in prompt_history:
+            if not entry["success"]:
+                failed_prompts.append((runner_name, entry))
+        return failed_prompts
+
+    def get_successful_prompts(self):
+        successful_prompts = []
+        prompt_history = self.get_prompt_history()
+        for runner_name, entry in prompt_history:
+            if entry["success"]:
+                successful_prompts.append((runner_name, entry))
+        return successful_prompts
+
     def fit(self, X, y, score_func, llm, n_examples=3, example_ratio=0.7, n_iter=None):
         # Split the data into example selection set and scoring set
         example_size = int(len(X) * example_ratio)

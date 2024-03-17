@@ -36,12 +36,27 @@ class Prediction(BaseModel):
         for key, value in kwargs.items():
             setattr(self, key, value)  # Dynamically assign attributes
 
+class PromptHistory(BaseModel):
+    history: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    def add_entry(self, prompt, llm_response, parsed_output, success, timestamp):
+        self.history.append({
+            "prompt": prompt,
+            "llm_response": llm_response,
+            "parsed_output": parsed_output,
+            "success": success,
+            "timestamp": timestamp
+        })
+
+
         
 class PromptRunner(RunnableSerializable):
     template: PromptSignature = None
     # prompt_history: List[str] = [] - Was trying to find a way to make a list of prompts for inspection 
     model_kwargs: Dict[str, Any] = {}
     kwargs: Dict[str, Any] = {}
+    prompt_history: PromptHistory = Field(default_factory=PromptHistory)
+
 
     def __init__(self, template_class, prompt_strategy, **kwargs):
         super().__init__()
@@ -69,6 +84,8 @@ class PromptRunner(RunnableSerializable):
         else:
             return 'openai'  # Default to OpenAI if model type cannot be determined
 
+    def get_prompt_history(self):
+        return self.prompt_history.history
     
     def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
         total_max_tries = max_tries
@@ -81,6 +98,7 @@ class PromptRunner(RunnableSerializable):
         logger.debug(f"LLM type: {llm_type}")
 
         res = {}
+        formatted_prompt = None
 
         while max_tries >= 1:
             try:
@@ -105,6 +123,8 @@ class PromptRunner(RunnableSerializable):
 
                 # logger.debug(f"PromptRunner invoke with trained_state {trained_state}")
                 invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True), 'llm_type': llm_type}
+                formatted_prompt = self.template.format_prompt(**invoke_args)
+
 
                 # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
@@ -142,6 +162,8 @@ class PromptRunner(RunnableSerializable):
                 logger.error(f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}")
                 validation = False
 
+            self.prompt_history.add_entry(formatted_prompt, res, parsed_output, validation, time.time())
+
             if validation:
                 # Transform and validate the outputs
                 for attr_name, output_field in self.template.output_variables.items():
@@ -172,7 +194,6 @@ class PromptRunner(RunnableSerializable):
             res = {attr_name: parsed_output.get(attr_name, None) for attr_name in self.template.output_variables.keys()}
 
             if validation:
-                # Return a dictionary keyed by attribute names with validated values
                 return res
 
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}, pausing before we retry")
