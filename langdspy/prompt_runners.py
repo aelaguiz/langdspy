@@ -69,19 +69,27 @@ class PromptRunner(RunnableSerializable):
         while max_tries >= 1:
             try:
                 kwargs = {**self.model_kwargs, **self.kwargs}
-                # print(f"PromptRunner invoke with input {input} and kwargs {kwargs} and config {config}")
-                # print(f"Prompt runner kwargs: {kwargs}")
+                # logger.debug(f"PromptRunner invoke with input {input} and kwargs {kwargs} and config {config}")
+                # logger.debug(f"Prompt runner kwargs: {kwargs}")
                 trained_state = config.get('trained_state', None)
+                # logger.debug(f"1 - Trained state is {trained_state}")
                 if not trained_state or not trained_state.examples:
+                    # logger.debug(f"2 - Trained state is {trained_state}")
                     trained_state = self.model_kwargs.get('trained_state', None)
+                    # logger.debug(f"3 - Trained state is {trained_state}")
+
                     if not trained_state or not trained_state.examples:
-                        trained_state = self.kwargs.get('trained_state', None)
+                        _trained_state = self.kwargs.get('trained_state', None)
+                        if not trained_state:
+                            trained_state = _trained_state
+                        # logger.debug(f"4 - Trained state is {trained_state}")
 
                 print_prompt = kwargs.get('print_prompt', config.get('print_prompt', False))
+                # logger.debug(f"Print prompt {print_prompt} kwargs print prompt {kwargs.get('print_prompt')} config print prompt {config.get('print_prompt')}")
 
-                # print(f"PromptRunner invoke with trained_state {trained_state}")
+                # logger.debug(f"PromptRunner invoke with trained_state {trained_state}")
                 invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True)}
-                # print(f"Invoke args: {invoke_args}")
+                # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
             except Exception as e:
                 import traceback
