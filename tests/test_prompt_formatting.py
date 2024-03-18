@@ -29,8 +29,8 @@ def test_format_prompt_anthropic():
     formatted_prompt = prompt_runner.template._format_anthropic_prompt(trained_state=None, use_training=True, input="test input")
     
     assert "<hint>Hint field</hint>" in formatted_prompt
-    assert "<input>: Input field" in formatted_prompt
-    assert "<output>: Output field" in formatted_prompt
+    assert "<input>Input field</input>" in formatted_prompt
+    assert "<output>Output field</output>" in formatted_prompt
     assert "<input>test input</input>" in formatted_prompt
     assert "<output></output>" in formatted_prompt
 

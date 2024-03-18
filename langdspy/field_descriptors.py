@@ -39,17 +39,13 @@ class FieldDescriptor:
 class HintField(FieldDescriptor):
     HINT_TOKEN_OPENAI = "💡"
     HINT_TOKEN_ANTHROPIC = None
-
     def __init__(self, desc: str, formatter: Optional[Callable[[Any], Any]] = None, transformer: Optional[Callable[[Any], Any]] = None, validator: Optional[Callable[[Any], Any]] = None, **kwargs):
         # Provide a default value for the name parameter, such as an empty string
         super().__init__("", desc, formatter, transformer, validator, **kwargs)
-
     def _start_format_openai(self):
         return f"{self.HINT_TOKEN_OPENAI}"
-
     def _start_format_anthropic(self):
         return f"<hint>"
-
     def format_prompt_description(self, llm_type: str):
         if llm_type == "openai":
             return f"{self._start_format_openai()} {self.desc}"
@@ -59,19 +55,15 @@ class HintField(FieldDescriptor):
 class InputField(FieldDescriptor):
     START_TOKEN_OPENAI = "✅"
     START_TOKEN_ANTHROPIC = None
-
     def _start_format_openai(self):
         return f"{self.START_TOKEN_OPENAI}{self.name}"
-
     def _start_format_anthropic(self):
         return f"<{self.name}>"
-
     def format_prompt_description(self, llm_type: str):
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {self.desc}"
         elif llm_type == "anthropic":
-            return f"{self._start_format_anthropic()}: {self.desc}"
-
+            return f"{self._start_format_anthropic()}{self.desc}</{self.name}>"
     def format_prompt_value(self, value, llm_type: str):
         value = self.format_value(value)
         if llm_type == "openai":
@@ -84,11 +76,12 @@ class InputFieldList(InputField):
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {self.desc}"
         elif llm_type == "anthropic":
-            return f"{self._start_format_anthropic()}: {self.desc}"
-
+            return f"{self._start_format_anthropic()}{self.desc}</{self.name}>"
     def format_prompt_value(self, value, llm_type: str):
         res = ""
         if len(value) >= 1:
+            if llm_type == "anthropic":
+                res += f"<{self.name}>\n"
             for i, value in enumerate(value):
                 if i > 0:
                     res += "\n"
@@ -97,37 +90,33 @@ class InputFieldList(InputField):
                     res += f"{self.START_TOKEN_OPENAI} [{i}]: {value}"
                 elif llm_type == "anthropic":
                     res += f"<item>{value}</item>"
+            if llm_type == "anthropic":
+                res += f"\n</{self.name}>"
         else:
             if llm_type == "openai":
                 res += f"{self._start_format_openai()}: NO VALUES SPECIFIED"
             elif llm_type == "anthropic":
                 res += f"{self._start_format_anthropic()}NO VALUES SPECIFIED</{self.name}>"
-
         return res
 
 class OutputField(FieldDescriptor):
     START_TOKEN_OPENAI = "🔑"
     START_TOKEN_ANTHROPIC = None
-
     def _start_format_openai(self):
         return f"{self.START_TOKEN_OPENAI}{self.name}"
-
     def _start_format_anthropic(self):
         return f"<{self.name}>"
-
     def format_prompt_description(self, llm_type: str):
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {self.desc}"
         elif llm_type == "anthropic":
-            return f"{self._start_format_anthropic()}: {self.desc}"
-
+            return f"{self._start_format_anthropic()}{self.desc}</{self.name}>"
     def format_prompt_value(self, value, llm_type: str):
         value = self.format_value(value)
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {value}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}{value}</{self.name}>"
-
     def format_prompt(self, llm_type: str):
         if llm_type == "openai":
             return f"{self._start_format_openai()}:"
@@ -143,11 +132,10 @@ class OutputFieldEnum(OutputField):
             kwargs['validator'] = validators.is_one_of
             kwargs['choices'] = [e.name for e in enum]
         super().__init__(name, desc, **kwargs)
-
     def format_prompt_description(self, llm_type: str):
         enum = self.kwargs.get('enum')
         choices_str = ", ".join([e.name for e in enum])
         if llm_type == "openai":
             return f"{self._start_format_openai()}: One of: {choices_str} - {self.desc}"
         elif llm_type == "anthropic":
-            return f"{self._start_format_anthropic()}: One of: {choices_str} - {self.desc}"
+            return f"{self._start_format_anthropic()}One of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"
