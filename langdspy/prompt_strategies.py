@@ -28,6 +28,7 @@ class PromptSignature(BasePromptTemplate, BaseModel):
     output_variables: Dict[str, Any] = []
     hint_variables: Dict[str, Any] = []  # New attribute for hint fields
     instance_id: str = Field(default_factory=str)
+    __examples__: List[Tuple[Dict[str, Any], Any]] = []
 
 
     def __init__(self, **kwargs):
@@ -52,6 +53,25 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.output_variables = outputs
         self.hint_variables = hints 
 
+        self.validate_examples()
+
+    def validate_examples(self):
+        for example_input, example_output in self.__examples__:
+            # Check input fields
+            for input_name in example_input:
+                if input_name not in self.input_variables:
+                    raise ValueError(f"Example input field '{input_name}' not found in input_variables")
+
+            # Check output fields
+            if isinstance(example_output, dict):
+                for output_name in example_output:
+                    if output_name not in self.output_variables:
+                        raise ValueError(f"Example output field '{output_name}' not found in output_variables")
+            else:
+                if len(self.output_variables) != 1:
+                    raise ValueError("Example output must be a dictionary when there are multiple output fields")
+
+
 class PromptStrategy(BaseModel):
     best_subset: List[Any] = []
 
@@ -70,6 +90,8 @@ class PromptStrategy(BaseModel):
         trained_state = kwargs.pop('trained_state', None)
         print_prompt = kwargs.pop('print_prompt', False)
         use_training = kwargs.pop('use_training', True)
+        examples = kwargs.pop('__examples__', self.__examples__)  # Add this line
+
         # print(f"Formatting prompt with trained_state {trained_state} and print_prompt {print_prompt} and kwargs {kwargs}")
         # print(f"Formatting prompt with use_training {use_training}")
 
@@ -80,9 +102,9 @@ class PromptStrategy(BaseModel):
             # logger.debug(f"PromptStrategy format_prompt with kwargs: {kwargs}")
 
             if llm_type == 'openai':
-                prompt = self._format_openai_prompt(trained_state, use_training, **kwargs)
+                prompt = self._format_openai_prompt(trained_state, use_training, examples, **kwargs)
             elif llm_type == 'anthropic':
-                prompt = self._format_anthropic_prompt(trained_state, use_training, **kwargs)
+                prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
 
             if print_prompt:
                 print(prompt)
@@ -106,11 +128,11 @@ class PromptStrategy(BaseModel):
 
 
     @abstractmethod
-    def _format_openai_prompt(self, **kwargs: Any) -> str:
+    def _format_openai_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         pass
 
     @abstractmethod
-    def _format_anthropic_prompt(self, **kwargs: Any) -> str:
+    def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         pass
 
     def _get_output_field(self, field_name):
@@ -130,7 +152,7 @@ class PromptStrategy(BaseModel):
 class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
 
-    def _format_openai_prompt(self, trained_state, use_training, **kwargs) -> str:
+    def _format_openai_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         # print(f"Formatting prompt {kwargs}")
         prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
 
@@ -159,11 +181,17 @@ class DefaultPromptStrategy(PromptStrategy):
             prompt += output_field.format_prompt_description("openai") + "\n"
             # prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
 
-        """
+        if examples:
+            for example_input, example_output in examples:
+                prompt += "\n---\n\n"
+                for input_name, input_field in self.input_variables.items():
+                    prompt += input_field.format_prompt_value(example_input.get(input_name), "openai") + "\n"
+                for output_name, output_field in self.output_variables.items():
+                    if isinstance(example_output, dict):
+                        prompt += output_field.format_prompt_value(example_output.get(output_name), "openai") + "\n"
+                    else:
+                        prompt += output_field.format_prompt_value(example_output, "openai") + "\n"
 
-        EXAMPLES GO HERE
-        
-        """
         if trained_state and trained_state.examples and use_training:
             for example_X, example_y in trained_state.examples:
                 prompt += "\n---\n\n"
@@ -188,7 +216,7 @@ class DefaultPromptStrategy(PromptStrategy):
 
         return prompt
 
-    def _format_anthropic_prompt(self, trained_state, use_training, **kwargs) -> str:
+    def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         # print(f"Formatting prompt {kwargs}")
         prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
 
@@ -212,10 +240,25 @@ class DefaultPromptStrategy(PromptStrategy):
             prompt += output_field.format_prompt_description("anthropic") + "\n"
             # prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
         prompt += "</output_fields>\n"
-        """
-        EXAMPLES GO HERE
-        
-        """
+
+        if examples:
+            prompt += "\n<examples>\n"
+            for example_input, example_output in examples:
+                prompt += "\n<example>\n"
+                prompt += "<input>\n"
+                for input_name, input_field in self.input_variables.items():
+                    prompt += input_field.format_prompt_value(example_input.get(input_name), "anthropic") + "\n"
+                prompt += "</input>\n"
+                prompt += "<output>\n"
+                for output_name, output_field in self.output_variables.items():
+                    if isinstance(example_output, dict):
+                        prompt += output_field.format_prompt_value(example_output.get(output_name), "anthropic") + "\n"
+                    else:
+                        prompt += output_field.format_prompt_value(example_output, "anthropic") + "\n"
+                prompt += "</output>\n"
+                prompt += "</example>\n"
+            prompt += "</examples>\n"
+
         if trained_state and trained_state.examples and use_training:
             prompt += "\n<examples>\n"
             for example_X, example_y in trained_state.examples:

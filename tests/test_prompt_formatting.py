@@ -14,7 +14,7 @@ class TestPromptSignature(PromptSignature):
 def test_format_prompt_openai():
     prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
     
-    formatted_prompt = prompt_runner.template._format_openai_prompt(trained_state=None, use_training=True, input="test input")
+    formatted_prompt = prompt_runner.template._format_openai_prompt(trained_state=None, use_training=True, input="test input", examples=None)
     print(formatted_prompt)
     
     assert "💡 Hint field" in formatted_prompt
@@ -26,7 +26,7 @@ def test_format_prompt_openai():
 def test_format_prompt_anthropic():
     prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
     
-    formatted_prompt = prompt_runner.template._format_anthropic_prompt(trained_state=None, use_training=True, input="test input")
+    formatted_prompt = prompt_runner.template._format_anthropic_prompt(trained_state=None, use_training=True, input="test input", examples=None)
     
     assert "<hint>Hint field</hint>" in formatted_prompt
     assert "<input>Input field</input>" in formatted_prompt

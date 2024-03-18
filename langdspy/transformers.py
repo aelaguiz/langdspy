@@ -13,6 +13,9 @@ def as_bool(value: str, kwargs: Dict[str, Any]) -> bool:
 def as_json_list(val: str, kwargs: Dict[str, Any]) -> List[Dict[str, Any]]:
     return json.loads(val)
 
+def as_json(val: str, kwargs: Dict[str, Any]) -> Any:
+    return json.loads(val)
+
 def as_enum(val: str, kwargs: Dict[str, Any]) -> Enum:
     enum_class = kwargs['enum']
     try:
