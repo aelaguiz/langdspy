@@ -4,6 +4,8 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra, PrivateAttr
 from langchain_core.pydantic_v1 import validator
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from typing import Any, Dict, List, Type, Optional, Callable
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -58,11 +60,25 @@ class PromptRunner(RunnableSerializable):
         
     def set_model_kwargs(self, model_kwargs):
         self.model_kwargs.update(model_kwargs)
+
+    def _determine_llm_type(self, llm):
+        if isinstance(llm, ChatOpenAI):  # Assuming OpenAILLM is the class for OpenAI models
+            return 'openai'
+        elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
+            return 'anthropic'
+        else:
+            return 'openai'  # Default to OpenAI if model type cannot be determined
+
     
     def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
         total_max_tries = max_tries
 
         hard_fail = config.get('hard_fail', False)
+        llm_type = config.get('llm_type')  # Get the LLM type from the configuration
+        if llm_type is None:
+            llm_type = self._determine_llm_type(config['llm'])  # Auto-detect the LLM type if not specified
+
+        logger.debug(f"LLM type: {llm_type}")
 
         res = {}
 
@@ -88,7 +104,8 @@ class PromptRunner(RunnableSerializable):
                 # logger.debug(f"Print prompt {print_prompt} kwargs print prompt {kwargs.get('print_prompt')} config print prompt {config.get('print_prompt')}")
 
                 # logger.debug(f"PromptRunner invoke with trained_state {trained_state}")
-                invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True)}
+                invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True), 'llm_type': llm_type}
+
                 # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
             except Exception as e:
@@ -109,7 +126,7 @@ class PromptRunner(RunnableSerializable):
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
             try:
-                parsed_output = self.template.parse_output_to_fields(res)
+                parsed_output = self.template.parse_output_to_fields(res, llm_type)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -172,6 +189,7 @@ class PromptRunner(RunnableSerializable):
     def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> Output:
         # logger.debug(f"Template: {self.template}")
         # logger.debug(f"Config: {config}")
+
         chain = (
             self.template
             | config['llm']
