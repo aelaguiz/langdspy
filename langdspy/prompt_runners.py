@@ -69,7 +69,28 @@ class PromptRunner(RunnableSerializable):
         while max_tries >= 1:
             try:
                 kwargs = {**self.model_kwargs, **self.kwargs}
-                res = chain.invoke({**input, 'trained_state': config.get('trained_state', None), 'print_prompt': config.get('print_prompt', False), **kwargs}, config=config)
+                # logger.debug(f"PromptRunner invoke with input {input} and kwargs {kwargs} and config {config}")
+                # logger.debug(f"Prompt runner kwargs: {kwargs}")
+                trained_state = config.get('trained_state', None)
+                # logger.debug(f"1 - Trained state is {trained_state}")
+                if not trained_state or not trained_state.examples:
+                    # logger.debug(f"2 - Trained state is {trained_state}")
+                    trained_state = self.model_kwargs.get('trained_state', None)
+                    # logger.debug(f"3 - Trained state is {trained_state}")
+
+                    if not trained_state or not trained_state.examples:
+                        _trained_state = self.kwargs.get('trained_state', None)
+                        if not trained_state:
+                            trained_state = _trained_state
+                        # logger.debug(f"4 - Trained state is {trained_state}")
+
+                print_prompt = kwargs.get('print_prompt', config.get('print_prompt', False))
+                # logger.debug(f"Print prompt {print_prompt} kwargs print prompt {kwargs.get('print_prompt')} config print prompt {config.get('print_prompt')}")
+
+                # logger.debug(f"PromptRunner invoke with trained_state {trained_state}")
+                invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True)}
+                # logger.debug(f"Invoke args: {invoke_args}")
+                res = chain.invoke(invoke_args, config=config)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -78,9 +99,12 @@ class PromptRunner(RunnableSerializable):
                 max_tries -= 1
                 continue
 
+            
             validation = True
 
             # logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
+            if print_prompt:
+                print(res)
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}

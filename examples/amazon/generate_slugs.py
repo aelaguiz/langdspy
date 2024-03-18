@@ -32,7 +32,7 @@ def get_llm():
     FAST_OPENAI_MODEL = os.getenv("FAST_OPENAI_MODEL")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
     OPENAI_TEMPERATURE = os.getenv("OPENAI_TEMPERATURE")
-    FAST_MODEL_PROVIDER = os.getenv("FAST_MODEL_PROVIDER")
+    FAST_MODEL_PROVIDER = os.getenv("FAST_MODEL_PROVIDER", "")
     FAST_ANTHROPIC_MODEL = os.getenv("FAST_ANTHROPIC_MODEL")
     FAST_GROQ_MODEL = os.getenv("FAST_GROQ_MODEL")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -82,14 +82,14 @@ def cosine_similarity_tfidf(true_slugs, predicted_slugs):
     similarity_scores = cosine_similarity(true_vectors, predicted_vectors)
     return similarity_scores.diagonal()
 
-def slug_similarity(true_slugs, predicted_slugs):
+def slug_similarity(X, true_slugs, predicted_slugs):
     similarity_scores = cosine_similarity_tfidf(true_slugs, predicted_slugs)
     average_similarity = sum(similarity_scores) / len(similarity_scores)
     return average_similarity
 
 def evaluate_model(model, X, y):
     predicted_slugs = model.predict(X, llm)
-    accuracy = slug_similarity(y, predicted_slugs)
+    accuracy = slug_similarity(X, y, predicted_slugs)
     return accuracy
 
 llm = get_llm()
