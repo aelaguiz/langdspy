@@ -139,3 +139,21 @@ class OutputFieldEnum(OutputField):
             return f"{self._start_format_openai()}: One of: {choices_str} - {self.desc}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}One of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"
+
+class OutputFieldEnumList(OutputField):
+    def __init__(self, name: str, desc: str, enum: Enum, **kwargs):
+        kwargs['enum'] = enum
+        if not 'transformer' in kwargs:
+            kwargs['transformer'] = transformers.as_enum_list
+        if not 'validator' in kwargs:
+            kwargs['validator'] = validators.is_subset_of
+            kwargs['choices'] = [e.name for e in enum]
+        super().__init__(name, desc, **kwargs)
+    
+    def format_prompt_description(self, llm_type: str):
+        enum = self.kwargs.get('enum')
+        choices_str = ", ".join([e.name for e in enum])
+        if llm_type == "openai":
+            return f"{self._start_format_openai()}: A comma-separated list of one or more of: {choices_str} - {self.desc}"
+        elif llm_type == "anthropic":
+            return f"{self._start_format_anthropic()}A comma-separated list of one or more of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"

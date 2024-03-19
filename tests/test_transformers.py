@@ -28,3 +28,16 @@ def test_as_enum():
     
     with pytest.raises(ValueError):
         transformers.as_enum("CHERRY", {"enum": Fruit})
+
+def test_as_enum_list():
+    class Fruit(Enum):
+        APPLE = 1
+        BANANA = 2
+        CHERRY = 3
+    
+    assert transformers.as_enum_list("APPLE", {"enum": Fruit}) == [Fruit.APPLE]
+    assert transformers.as_enum_list("BANANA, CHERRY", {"enum": Fruit}) == [Fruit.BANANA, Fruit.CHERRY]
+    assert transformers.as_enum_list("APPLE,BANANA,CHERRY", {"enum": Fruit}) == [Fruit.APPLE, Fruit.BANANA, Fruit.CHERRY]
+    
+    with pytest.raises(ValueError):
+        transformers.as_enum_list("DURIAN", {"enum": Fruit})

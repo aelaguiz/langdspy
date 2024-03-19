@@ -24,7 +24,6 @@ def is_one_of(input, output_val, kwargs) -> bool:
     if not kwargs.get('choices'):
         raise ValueError("is_one_of validator requires 'choices' keyword argument")
 
-
     none_ok = False
     if kwargs.get('none_ok', False):
         none_ok = True
@@ -49,4 +48,25 @@ def is_one_of(input, output_val, kwargs) -> bool:
         logger.error(f"Field must be one of {kwargs.get('choices')}, not {output_val}")
         import traceback
         traceback.print_exc()
+        return False
+
+def is_subset_of(input, output_val, kwargs) -> bool:
+    if not kwargs.get('choices'):
+        raise ValueError("is_subset_of validator requires 'choices' keyword argument")
+    
+    none_ok = kwargs.get('none_ok', False)
+    if none_ok and output_val.lower().strip() == "none":
+        return True
+    
+    try:
+        values = [v.strip() for v in output_val.split(",")]
+        if not kwargs.get('case_sensitive', False):
+            choices = [c.lower() for c in kwargs['choices']]
+            values = [v.lower() for v in values]
+        for value in values:
+            if value not in choices:
+                return False
+        return True
+    except Exception as e:
+        logger.error(f"Field must be a comma-separated list of one or more of {kwargs.get('choices')}, not {output_val}")
         return False

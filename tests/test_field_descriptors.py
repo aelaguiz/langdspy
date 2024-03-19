@@ -1,5 +1,6 @@
 import pytest
-from langdspy.field_descriptors import InputField, InputFieldList
+from enum import Enum
+from langdspy.field_descriptors import InputField, InputFieldList, OutputField, OutputFieldEnum, OutputFieldEnumList
 
 def test_input_field_initialization():
     field = InputField("name", "description")
@@ -36,3 +37,25 @@ def test_input_field_list_format_prompt_value():
 def test_input_field_list_format_prompt_value_empty():
     field = InputFieldList("name", "description")
     assert field.format_prompt_value([], "openai") == "✅name: NO VALUES SPECIFIED"
+
+class TestEnum(Enum):
+    VALUE1 = "value1"
+    VALUE2 = "value2"
+    VALUE3 = "value3"
+
+def test_output_field_enum_list_initialization():
+    field = OutputFieldEnumList("name", "description", TestEnum)
+    assert field.name == "name"
+    assert field.desc == "description"
+    print(field.kwargs)
+    assert field.kwargs['enum'] == TestEnum
+    assert field.transformer.__name__ == "as_enum_list"
+    # assert field.kwargs['transformer'].__name__ == "as_enum_list"
+    assert field.validator.__name__ == "is_subset_of"
+    # assert field.kwargs['validator'].__name__ == "is_subset_of"
+    assert field.kwargs['choices'] == ["VALUE1", "VALUE2", "VALUE3"]
+
+def test_output_field_enum_list_format_prompt_description():
+    field = OutputFieldEnumList("name", "description", TestEnum)
+    assert "A comma-separated list of one or more of: VALUE1, VALUE2, VALUE3" in field.format_prompt_description("openai")
+    assert "A comma-separated list of one or more of: <choices>VALUE1, VALUE2, VALUE3</choices>" in field.format_prompt_description("anthropic")

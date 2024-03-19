@@ -22,3 +22,11 @@ def as_enum(val: str, kwargs: Dict[str, Any]) -> Enum:
         return enum_class[val.upper()]
     except KeyError:
         raise ValueError(f"{val} is not a valid member of the {enum_class.__name__} enumeration")
+
+def as_enum_list(val: str, kwargs: Dict[str, Any]) -> List[Enum]:
+    enum_class = kwargs['enum']
+    values = [v.strip() for v in val.split(",")]
+    try:
+        return [enum_class[v.upper()] for v in values]
+    except KeyError as e:
+        raise ValueError(f"{e.args[0]} is not a valid member of the {enum_class.__name__} enumeration")
