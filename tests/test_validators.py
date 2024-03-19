@@ -15,3 +15,21 @@ def test_is_one_of():
     
     with pytest.raises(ValueError):
         validators.is_one_of({}, 'apple', {})
+
+def test_is_subset_of():
+    choices = ["apple", "banana", "cherry"]
+    
+    assert validators.is_subset_of({}, "apple", {"choices": choices}) == True
+    assert validators.is_subset_of({}, "apple,banana", {"choices": choices}) == True
+    assert validators.is_subset_of({}, "apple, banana, cherry", {"choices": choices}) == True
+    assert validators.is_subset_of({}, "APPLE", {"choices": choices, "case_sensitive": False}) == True
+    assert validators.is_subset_of({}, "APPLE,BANANA", {"choices": choices, "case_sensitive": False}) == True
+    
+    assert validators.is_subset_of({}, "durian", {"choices": choices}) == False
+    assert validators.is_subset_of({}, "apple,durian", {"choices": choices}) == False
+    
+    assert validators.is_subset_of({}, "none", {"choices": choices, "none_ok": True}) == True
+    assert validators.is_subset_of({}, "apple,none", {"choices": choices, "none_ok": True}) == False
+    
+    with pytest.raises(ValueError):
+        validators.is_subset_of({}, "apple", {})
