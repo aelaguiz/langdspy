@@ -86,6 +86,18 @@ class PromptRunner(RunnableSerializable):
         else:
             return 'openai'  # Default to OpenAI if model type cannot be determined
 
+    def _determine_llm_model(self, llm):
+        if isinstance(llm, ChatOpenAI):  # Assuming OpenAILLM is the class for OpenAI models
+            return llm.model_name
+        elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
+            return llm.model
+        elif hasattr(llm, 'model_name'):
+            return llm.model_name
+        elif hasattr(llm, 'model'):
+            return llm.model
+        else:
+            return '???'
+
     def get_prompt_history(self):
         return self.prompt_history.history
     
@@ -193,7 +205,7 @@ class PromptRunner(RunnableSerializable):
                     parsed_output[attr_name] = transformed_val
 
             end_time = time.time()
-            self.prompt_history.add_entry(config["llm"].model_name, formatted_prompt, res, parsed_output, validation_err, start_time, end_time)
+            self.prompt_history.add_entry(self._determine_llm_type(config['llm']) + " " + self._determine_llm_model(config['llm']), formatted_prompt, res, parsed_output, validation_err, start_time, end_time)
 
             res = {attr_name: parsed_output.get(attr_name, None) for attr_name in self.template.output_variables.keys()}
 
