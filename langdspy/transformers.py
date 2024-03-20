@@ -3,6 +3,7 @@ import json
 from enum import Enum
 from langchain_core.documents import Document
 import re
+from .data_helper import normalize_enum_value
 
 def as_bool(value: str, kwargs: Dict[str, Any]) -> bool:
     value = re.sub(r'[^\w\s]', '', value)
@@ -15,9 +16,6 @@ def as_json_list(val: str, kwargs: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def as_json(val: str, kwargs: Dict[str, Any]) -> Any:
     return json.loads(val)
-
-def normalize_enum_value(val: str) -> str:
-    return val.replace(" ", "_").replace("-", "_").upper()
 
 def as_enum(val: str, kwargs: Dict[str, Any]) -> Enum:
     enum_class = kwargs['enum']

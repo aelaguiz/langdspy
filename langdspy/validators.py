@@ -1,6 +1,6 @@
 import json
 import logging
-
+from .data_helper import normalize_enum_value
 
 logger = logging.getLogger("langdspy")
 
@@ -34,8 +34,8 @@ def is_one_of(input, output_val, kwargs) -> bool:
 
     try:
         if not kwargs.get('case_sensitive', False):
-            choices = [c.lower().replace("_", " ") for c in kwargs['choices']]
-            output_val = output_val.lower().replace("_", " ")
+            choices = [normalize_enum_value(c) for c in kwargs['choices']]
+            output_val = normalize_enum_value (output_val)
 
         # logger.debug(f"Checking if {output_val} is one of {choices}")
         for choice in choices:
@@ -61,8 +61,8 @@ def is_subset_of(input, output_val, kwargs) -> bool:
     try:
         values = [v.strip() for v in output_val.split(",")]
         if not kwargs.get('case_sensitive', False):
-            choices = [c.lower().replace("_", " ") for c in kwargs['choices']]
-            values = [v.lower().replace("_", " ") for v in values]
+            choices = [normalize_enum_value(c) for c in kwargs['choices']]
+            values = [normalize_enum_value(v) for v in values]
         for value in values:
             if value not in choices:
                 return False
