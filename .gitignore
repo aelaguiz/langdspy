@@ -15,4 +15,4 @@ __pycache__/
 .pytest_cache/
 htmlcov/
 .coverage
-
+*.swp
