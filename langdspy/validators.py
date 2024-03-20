@@ -34,8 +34,8 @@ def is_one_of(input, output_val, kwargs) -> bool:
 
     try:
         if not kwargs.get('case_sensitive', False):
-            choices = [c.lower() for c in kwargs['choices']]
-            output_val = output_val.lower()
+            choices = [c.lower().replace("_", " ") for c in kwargs['choices']]
+            output_val = output_val.lower().replace("_", " ")
 
         # logger.debug(f"Checking if {output_val} is one of {choices}")
         for choice in choices:
@@ -61,8 +61,8 @@ def is_subset_of(input, output_val, kwargs) -> bool:
     try:
         values = [v.strip() for v in output_val.split(",")]
         if not kwargs.get('case_sensitive', False):
-            choices = [c.lower() for c in kwargs['choices']]
-            values = [v.lower() for v in values]
+            choices = [c.lower().replace("_", " ") for c in kwargs['choices']]
+            values = [v.lower().replace("_", " ") for v in values]
         for value in values:
             if value not in choices:
                 return False
