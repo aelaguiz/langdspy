@@ -109,7 +109,10 @@ class PromptRunner(RunnableSerializable):
         if llm_type is None:
             llm_type = self._determine_llm_type(config['llm'])  # Auto-detect the LLM type if not specified
 
-        logger.debug(f"LLM type: {llm_type}")
+        llm_model = self._determine_llm_model(config['llm']) 
+
+        logger.debug(f"LLM type: {llm_type} - model {llm_model}")
+
 
         res = {}
         formatted_prompt = None
