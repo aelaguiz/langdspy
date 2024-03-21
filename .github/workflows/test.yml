@@ -5,6 +5,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: "FAKE"
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
