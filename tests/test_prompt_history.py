@@ -13,6 +13,8 @@ class TestPromptSignature2(PromptSignature):
 @pytest.fixture
 def llm():
     class FakeLLM:
+        model = "test one"
+
         def __call__(self, prompt, stop=None):
             return "Fake LLM response"
     return FakeLLM()
@@ -43,17 +45,23 @@ def test_prompt_history(llm):
     runner_name1, entry1 = prompt_history[0]
     assert runner_name1 == "prompt_runner1"
     assert "prompt" in entry1
+    assert "llm" in entry1
     assert "llm_response" in entry1
+    assert entry1["llm"] == "openai test one"
     assert entry1["parsed_output"] == {"output1": "Fake LLM response"}
-    assert entry1["success"] == True
+    assert entry1["error"] is None
+    assert "duration_ms" in entry1
     assert "timestamp" in entry1
 
     runner_name2, entry2 = prompt_history[1]
     assert runner_name2 == "prompt_runner2"
     assert "prompt" in entry2
+    assert "llm" in entry2
     assert "llm_response" in entry2
+    assert entry2["llm"] == "openai test one"
     assert entry2["parsed_output"] == {"output2": "Fake LLM response"}
-    assert entry2["success"] == True
+    assert entry2["error"] is None
+    assert "duration_ms" in entry2
     assert "timestamp" in entry2
 
 def test_failed_prompts(llm):
@@ -81,8 +89,8 @@ def test_failed_prompts(llm):
 
     runner_name1, entry1 = successful_prompts[0]
     assert runner_name1 == "prompt_runner1"
-    assert entry1["success"] == True
+    assert entry1["error"] is None
 
     runner_name2, entry2 = successful_prompts[1]
     assert runner_name2 == "prompt_runner2"
-    assert entry2["success"] == True
+    assert entry2["error"] is None

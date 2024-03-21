@@ -92,7 +92,7 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         failed_prompts = []
         prompt_history = self.get_prompt_history()
         for runner_name, entry in prompt_history:
-            if not entry["success"]:
+            if entry["error"] is not None:
                 failed_prompts.append((runner_name, entry))
         return failed_prompts
 
@@ -100,7 +100,7 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         successful_prompts = []
         prompt_history = self.get_prompt_history()
         for runner_name, entry in prompt_history:
-            if entry["success"]:
+            if entry["error"] is None:
                 successful_prompts.append((runner_name, entry))
         return successful_prompts
 

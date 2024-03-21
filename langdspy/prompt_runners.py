@@ -39,13 +39,15 @@ class Prediction(BaseModel):
 class PromptHistory(BaseModel):
     history: List[Dict[str, Any]] = Field(default_factory=list)
     
-    def add_entry(self, prompt, llm_response, parsed_output, success, timestamp):
+    def add_entry(self, llm, prompt, llm_response, parsed_output, error, start_time, end_time):
         self.history.append({
-            "prompt": prompt,
+            "duration_ms": round((end_time - start_time) * 1000),
+            "llm": llm,
             "llm_response": llm_response,
             "parsed_output": parsed_output,
-            "success": success,
-            "timestamp": timestamp
+            "prompt": prompt,
+            "error": error,
+            "timestamp": end_time,
         })
 
 
@@ -84,6 +86,18 @@ class PromptRunner(RunnableSerializable):
         else:
             return 'openai'  # Default to OpenAI if model type cannot be determined
 
+    def _determine_llm_model(self, llm):
+        if isinstance(llm, ChatOpenAI):  # Assuming OpenAILLM is the class for OpenAI models
+            return llm.model_name
+        elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
+            return llm.model
+        elif hasattr(llm, 'model_name'):
+            return llm.model_name
+        elif hasattr(llm, 'model'):
+            return llm.model
+        else:
+            return '???'
+
     def get_prompt_history(self):
         return self.prompt_history.history
     
@@ -101,6 +115,7 @@ class PromptRunner(RunnableSerializable):
         formatted_prompt = None
 
         while max_tries >= 1:
+            start_time = time.time()
             try:
                 kwargs = {**self.model_kwargs, **self.kwargs}
                 # logger.debug(f"PromptRunner invoke with input {input} and kwargs {kwargs} and config {config}")
@@ -137,7 +152,7 @@ class PromptRunner(RunnableSerializable):
                 continue
 
             
-            validation = True
+            validation_err = None
 
             # logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
             if print_prompt:
@@ -150,8 +165,8 @@ class PromptRunner(RunnableSerializable):
             except Exception as e:
                 import traceback
                 traceback.print_exc()
-                logger.error(f"Failed to parse output for prompt runner {self.template.__class__.__name__}")
-                validation = False
+                validation_err = f"Failed to parse output for prompt runner {self.template.__class__.__name__}"
+                logger.error(validation_err)
             # logger.debug(f"Parsed output: {parsed_output}")
 
             len_parsed_output = len(parsed_output.keys())
@@ -159,24 +174,22 @@ class PromptRunner(RunnableSerializable):
             # logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
 
             if len(parsed_output.keys()) != len(self.template.output_variables.keys()):
-                logger.error(f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}")
-                validation = False
+                validation_err = f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}"
+                logger.error(validation_err)
 
-            self.prompt_history.add_entry(formatted_prompt, res, parsed_output, validation, time.time())
-
-            if validation:
+            if validation_err is None:
                 # Transform and validate the outputs
                 for attr_name, output_field in self.template.output_variables.items():
                     output_value = parsed_output.get(attr_name)
                     if not output_value:
-                        logger.error(f"Failed to get output value for field {attr_name} for prompt runner {self.template.__class__.__name__}")
-                        validation = False
+                        validation_err = f"Failed to get output value for field {attr_name} for prompt runner {self.template.__class__.__name__}"
+                        logger.error(validation_err)
                         continue
 
                     # Validate the transformed value
                     if not output_field.validate_value(input, output_value):
-                        validation = False
-                        logger.error(f"Failed to validate field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}")
+                        validation_err = f"Failed to validate field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}"
+                        logger.error(validation_err)
 
                     # Get the transformed value
                     try:
@@ -184,16 +197,19 @@ class PromptRunner(RunnableSerializable):
                     except Exception as e:
                         import traceback
                         traceback.print_exc()
-                        logger.error(f"Failed to transform field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}")
-                        validation = False
+                        validation_err = f"Failed to transform field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}"
+                        logger.error(validation_err)
                         continue
 
                     # Update the output with the transformed value
                     parsed_output[attr_name] = transformed_val
 
+            end_time = time.time()
+            self.prompt_history.add_entry(self._determine_llm_type(config['llm']) + " " + self._determine_llm_model(config['llm']), formatted_prompt, res, parsed_output, validation_err, start_time, end_time)
+
             res = {attr_name: parsed_output.get(attr_name, None) for attr_name in self.template.output_variables.keys()}
 
-            if validation:
+            if validation_err is None:
                 return res
 
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}, pausing before we retry")
