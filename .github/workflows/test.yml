@@ -1,48 +1,42 @@
 name: Run Tests
-
 on:
   pull_request:
     branches: [main]
-
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
-
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: 3.9
-
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
-
     - name: Configure Poetry
       run: |
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         poetry config virtualenvs.in-project true
-
     - name: Set up cache
       uses: actions/cache@v2
       with:
         path: .venv
         key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
-
     - name: Install dependencies
       run: |
         poetry install
-
     - name: Run tests with coverage
       run: |
-        poetry run test
-
+        poetry run pytest --cov=langdspy --cov-report=html tests/
+    - name: Check test results
+      if: failure()
+      run: |
+        echo "Tests failed. Please fix the failing tests."
+        exit 1
     - name: Generate coverage report
       run: |
-        poetry run coverage
-
+        poetry run coverage html
     - name: Upload coverage report
       uses: actions/upload-artifact@v2
       with:
