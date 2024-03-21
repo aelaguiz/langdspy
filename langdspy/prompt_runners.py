@@ -193,6 +193,8 @@ class PromptRunner(RunnableSerializable):
                     parsed_output[attr_name] = transformed_val
 
             end_time = time.time()
+
+            # The model named may be called model_name or model depending on version of langchain_anthropic
             try:
                 model_name = config["llm"].model_name
             except AttributeError:
