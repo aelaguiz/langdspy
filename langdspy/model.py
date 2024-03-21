@@ -88,6 +88,10 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
                 prompt_history.append((runner_name, entry))
         return prompt_history
 
+    def clear_prompt_history(self):
+        for runner_name, runner in self.prompt_runners:
+            runner.clear_prompt_history()
+
     def get_failed_prompts(self):
         failed_prompts = []
         prompt_history = self.get_prompt_history()

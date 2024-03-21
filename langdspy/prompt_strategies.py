@@ -106,9 +106,6 @@ class PromptStrategy(BaseModel):
             elif llm_type == 'anthropic':
                 prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
 
-            if print_prompt:
-                print(prompt)
-
             return prompt
         except Exception as e:
             logger.error(f"Failed to format prompt with kwargs: {kwargs}")

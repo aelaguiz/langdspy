@@ -50,6 +50,9 @@ class PromptHistory(BaseModel):
             "timestamp": end_time,
         })
 
+    def reset(self):
+        self.history = []
+
 
         
 class PromptRunner(RunnableSerializable):
@@ -100,6 +103,9 @@ class PromptRunner(RunnableSerializable):
 
     def get_prompt_history(self):
         return self.prompt_history.history
+
+    def clear_prompt_history(self):
+        self.prompt_history.reset()
     
     def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
         total_max_tries = max_tries
@@ -143,6 +149,8 @@ class PromptRunner(RunnableSerializable):
                 invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True), 'llm_type': llm_type}
                 formatted_prompt = self.template.format_prompt(**invoke_args)
 
+                if print_prompt:
+                    print(formatted_prompt)
 
                 # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
