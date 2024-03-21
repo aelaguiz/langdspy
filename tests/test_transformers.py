@@ -22,22 +22,31 @@ def test_as_enum():
     class Fruit(Enum):
         APPLE = 1
         BANANA = 2
+        CHERRY_PIE = 3
+        DURIAN_FRUIT = 4
     
     assert transformers.as_enum("APPLE", {"enum": Fruit}) == Fruit.APPLE
     assert transformers.as_enum("BANANA", {"enum": Fruit}) == Fruit.BANANA
+    assert transformers.as_enum("cherry pie", {"enum": Fruit}) == Fruit.CHERRY_PIE
+    assert transformers.as_enum("Durian-Fruit", {"enum": Fruit}) == Fruit.DURIAN_FRUIT
+    assert transformers.as_enum("Durian_Fruit", {"enum": Fruit}) == Fruit.DURIAN_FRUIT
+    assert transformers.as_enum("Durian Fruit", {"enum": Fruit}) == Fruit.DURIAN_FRUIT
     
     with pytest.raises(ValueError):
-        transformers.as_enum("CHERRY", {"enum": Fruit})
+        transformers.as_enum("MANGO", {"enum": Fruit})
 
 def test_as_enum_list():
     class Fruit(Enum):
         APPLE = 1
         BANANA = 2
-        CHERRY = 3
+        CHERRY_PIE = 3
+        DURIAN_FRUIT = 4
     
     assert transformers.as_enum_list("APPLE", {"enum": Fruit}) == [Fruit.APPLE]
-    assert transformers.as_enum_list("BANANA, CHERRY", {"enum": Fruit}) == [Fruit.BANANA, Fruit.CHERRY]
-    assert transformers.as_enum_list("APPLE,BANANA,CHERRY", {"enum": Fruit}) == [Fruit.APPLE, Fruit.BANANA, Fruit.CHERRY]
+    assert transformers.as_enum_list("BANANA, CHERRY PIE", {"enum": Fruit}) == [Fruit.BANANA, Fruit.CHERRY_PIE]
+    assert transformers.as_enum_list("APPLE,BANANA,CHERRY PIE", {"enum": Fruit}) == [Fruit.APPLE, Fruit.BANANA, Fruit.CHERRY_PIE]
+    assert transformers.as_enum_list("Durian-Fruit, cherry pie", {"enum": Fruit}) == [Fruit.DURIAN_FRUIT, Fruit.CHERRY_PIE]
+    assert transformers.as_enum_list("Durian Fruit, cherry_pie", {"enum": Fruit}) == [Fruit.DURIAN_FRUIT, Fruit.CHERRY_PIE]
     
     with pytest.raises(ValueError):
-        transformers.as_enum_list("DURIAN", {"enum": Fruit})
+        transformers.as_enum_list("MANGO", {"enum": Fruit})
