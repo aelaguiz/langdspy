@@ -193,6 +193,11 @@ class PromptRunner(RunnableSerializable):
                     parsed_output[attr_name] = transformed_val
 
             end_time = time.time()
+            try:
+                model_name = config["llm"].model_name
+            except AttributeError:
+                model_name = config["llm"].model
+
             self.prompt_history.add_entry(config["llm"].model_name, formatted_prompt, res, parsed_output, validation_err, start_time, end_time)
 
             res = {attr_name: parsed_output.get(attr_name, None) for attr_name in self.template.output_variables.keys()}
