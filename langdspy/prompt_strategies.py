@@ -42,6 +42,8 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         hints = {}  # New dictionary to hold hint fields
 
         for name, attribute in self.__class__.__fields__.items():
+            print(f"Type of attribute.type_: {type(attribute.type_)}")
+            print(f"Class of attribute.type_: {attribute.type_.__class__}")
             if issubclass(attribute.type_, InputField):
                 inputs[name] = attribute.default
             elif issubclass(attribute.type_, OutputField):
