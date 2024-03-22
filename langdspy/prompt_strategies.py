@@ -215,7 +215,8 @@ class DefaultPromptStrategy(PromptStrategy):
 
     def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         # print(f"Formatting prompt {kwargs}")
-        prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
+        # prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
+        prompt = ""
 
         output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
         # Format the instruction with the extracted names
