@@ -150,7 +150,9 @@ class PromptRunner(RunnableSerializable):
                 formatted_prompt = self.template.format_prompt(**invoke_args)
 
                 if print_prompt:
+                    print(f"------------------------PROMPT START--------------------------------")
                     print(formatted_prompt)
+                    print(f"------------------------PROMPT END----------------------------------\n")
 
                 # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
@@ -167,7 +169,9 @@ class PromptRunner(RunnableSerializable):
 
             # logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
             if print_prompt:
+                print(f"------------------------RESULT START--------------------------------")
                 print(res)
+                print(f"------------------------RESULT END----------------------------------\n")
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
@@ -223,14 +227,16 @@ class PromptRunner(RunnableSerializable):
             if validation_err is None:
                 return res
 
-            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}, pausing before we retry")
-            time.sleep(random.uniform(0.1, 1.5))
             max_tries -= 1
+            if max_tries >= 1:
+                logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__}, pausing before we retry")
+                time.sleep(random.uniform(0.05, 0.25))
 
         if hard_fail:
             raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries.")
         else:
-            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries, returning unvalidated output.")
+            logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries, returning None.")
+            res = {attr_name: None for attr_name in self.template.output_variables.keys()}
 
         return res
  

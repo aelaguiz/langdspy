@@ -1,7 +1,8 @@
 import pytest
-from langdspy.field_descriptors import InputField, OutputField
+from langdspy.field_descriptors import InputField, OutputField, OutputFieldBool
 from langdspy.prompt_strategies import PromptSignature, DefaultPromptStrategy
 from langdspy.prompt_runners import PromptRunner
+from langdspy.formatters import as_multiline
 
 class TestOutputParsingPromptSignature(PromptSignature):
     ticket_summary = InputField(name="Ticket Summary", desc="Summary of the ticket we're trying to analyze.")
@@ -70,3 +71,69 @@ Unfortunately, based on the provided input, I do not have enough context to dete
     
     assert result["buyer_issues_summary"] == "The buyer is trying to personalize their order by selecting variants like color or size, but after making their selections and hitting \"done\", the changes are not being reflected. They are also asking how long delivery will take."
     assert result.get("buyer_issue_category") is None
+
+def test_repeated_input_output():
+    output_data = """<input_fields>
+<Ticket Summary>A summary of the ticket</Ticket Summary>
+</input_fields>
+
+<output_fields>
+<Spam>One of: <choices>Yes, No</choices> - Is this ticket a spam or sales ticket</Spam>
+</output_fields>
+
+<examples>
+
+<example>
+<input>
+<Ticket Summary>«Ticket ID: 2044
+Freshdesk ID: 335398
+Status: PENDING
+Processing State: TRIAGED_READY
+Subject: Horror collection
+Priority: 2
+Messages:»</Ticket Summary>
+</input>
+<output>
+<Spam>No</Spam>
+</output>
+</example>
+
+<example>
+<input>
+<Ticket Summary>«Ticket ID: 2504
+Freshdesk ID: 334191
+Status: PENDING
+Processing State: TRIAGED_READY
+Subject: Ch
+Messages:»</Ticket Summary>
+</input>
+<output>
+<Spam>No</Spam>
+</output>
+</example>
+</examples>
+
+<input>
+<Ticket Summary>«Ticket ID: 2453
+Freshdesk ID: 334312
+Status: IN_PROGRESS
+Processing State: TRIAGED_READY
+Subject: No Response from Seller
+Description: [Chatbot]:  Hi there, how can we help you today?   [user]:  I sent a message to the seller on 2/2 and received an auto reply to allow 2-3 days for someone to get back to me. To date, I have not heard anything from the seller.   [Chatbot]:  (No Intent Predicted)   [Chatbot]:  I understand your concern about not hearing back from the seller. If it's been more than 2 business days since you contacted them, Cratejoy can assist by reaching out on your behalf. Please contact Cratejoy Support for further help with this issue. * Shipments Lost In Transit * Getting Help With An Unshipped Order * Damaged, Duplicate or Defective Items   [Chatbot]:  Was I able to help you resolve your question?
+(Yes, thank you!)
+</input>
+
+<output>
+<Spam>No</Spam>
+</output>
+"""
+
+    class IsTicketSpam(PromptSignature):
+        ticket_summary = InputField(name="Ticket Summary", desc="A summary of the ticket", formatter=as_multiline)
+        is_spam = OutputFieldBool(name="Spam", desc="Is this ticket a spam or sales ticket")
+
+    config = {"llm_type": "anthropic"}
+    prompt_runner = PromptRunner(template_class=IsTicketSpam, prompt_strategy=DefaultPromptStrategy)
+    result = prompt_runner.template.parse_output_to_fields(output_data, config["llm_type"])
+    
+    assert result["is_spam"] == "No"

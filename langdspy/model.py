@@ -75,7 +75,7 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
 
     def predict(self, X, llm):
         y = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(self.invoke)(item, {**self.kwargs, 'trained_state': self.trained_state, 'llm': llm})
+            delayed(self.invoke)(item, {**self.kwargs, 'trained_state': self.trained_state, 'llm': llm, 'max_tries': 1})
             for item in tqdm(X, desc="Predicting", total=len(X))
         )
         return y
@@ -125,27 +125,34 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         logger.debug(f"Total number of examples: {n_examples} Example size: {example_size} n_examples: {n_examples} example_X size: {len(example_X)} Scoring size: {len(scoring_X)}")
         
         def evaluate_subset(subset):
+            # logger.debug(f"Evaluating subset: {subset}")
             subset_X, subset_y = zip(*subset)
             self.trained_state.examples = subset
             
             # Predict on the scoring set
-            predicted_slugs = Parallel(n_jobs=self.n_jobs)(
+            predicted_y = Parallel(n_jobs=self.n_jobs)(
                 delayed(self.invoke)(item, config={
                     **self.kwargs,
                     'trained_state': self.trained_state,
-                    'llm': llm
+                    'llm': llm,
+                    'max_tries': 1
                 })
                 for item in scoring_X
             )
-            score = score_func(scoring_X, scoring_y, predicted_slugs)
-            logger.debug(f"Training subset scored {score}")
+            score = score_func(scoring_X, scoring_y, predicted_y)
+            # logger.debug(f"Training subset scored {score}")
             return score, subset
+
+        # logger.debug(f"Generating subsets")
         
         # Generate all possible subsets
-        all_subsets = list(itertools.combinations(zip(example_X, example_y), n_examples))
+        # all_subsets = list(itertools.combinations(zip(example_X, example_y), n_examples))
+        all_subsets = [random.sample(list(zip(example_X, example_y)), n_examples) for _ in range(n_iter)]
+
         
         # Randomize the order of subsets
         random.shuffle(all_subsets)
+        logger.debug(f"Total number of subsets: {len(all_subsets)}")
         
         # Limit the number of iterations if n_iter is specified
         if n_iter is not None:

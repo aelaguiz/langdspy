@@ -215,11 +215,12 @@ class DefaultPromptStrategy(PromptStrategy):
 
     def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         # print(f"Formatting prompt {kwargs}")
-        prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
+        # prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
+        prompt = ""
 
         output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
         # Format the instruction with the extracted names
-        prompt += f"Provide answers for {output_field_names}. Follow the XML output format.\n"
+        prompt += f"Provide answers for output fields {output_field_names}. Follow the XML output format, only show the output fields do not repeat the hints, input fields or examples.\n"
 
         if self.hint_variables:
             prompt += "\n<hints>\n"
@@ -325,9 +326,15 @@ class DefaultPromptStrategy(PromptStrategy):
             parsed_fields = {}
             for output_name, output_field in self.output_variables.items():
                 pattern = fr"<{output_field.name}>(.*?)</{output_field.name}>"
-                match = re.search(pattern, output, re.DOTALL)
-                if match:
-                    parsed_fields[output_name] = match.group(1).strip()
+                # match = re.search(pattern, output, re.DOTALL)
+                # if match:
+                #     parsed_fields[output_name] = match.group(1).strip()
+                matches = re.findall(pattern, output, re.DOTALL)
+                if matches:
+                    # Take the last match
+                    last_match = matches[-1]
+                    parsed_fields[output_name] = last_match.strip()
+
 
             logger.debug(f"Parsed fields: {parsed_fields}")
             return parsed_fields
