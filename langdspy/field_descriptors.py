@@ -123,6 +123,23 @@ class OutputField(FieldDescriptor):
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}</{self.name}>"
 
+class OutputFieldBool(OutputField):
+    def __init__(self, name: str, desc: str, **kwargs):
+        if not 'transformer' in kwargs:
+            kwargs['transformer'] = transformers.as_bool
+        if not 'validator' in kwargs:
+            kwargs['validator'] = validators.is_one_of
+            kwargs['choices'] = ['Yes', 'No']
+
+        super().__init__(name, desc, **kwargs)
+
+    def format_prompt_description(self, llm_type: str):
+        choices_str = ", ".join(['Yes', 'No'])
+        if llm_type == "openai":
+            return f"{self._start_format_openai()}: One of: {choices_str} - {self.desc}"
+        elif llm_type == "anthropic":
+            return f"{self._start_format_anthropic()}One of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"
+
 class OutputFieldEnum(OutputField):
     def __init__(self, name: str, desc: str, enum: Enum, **kwargs):
         kwargs['enum'] = enum

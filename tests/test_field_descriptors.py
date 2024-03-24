@@ -1,6 +1,6 @@
 import pytest
 from enum import Enum
-from langdspy.field_descriptors import InputField, InputFieldList, OutputField, OutputFieldEnum, OutputFieldEnumList
+from langdspy.field_descriptors import InputField, InputFieldList, OutputField, OutputFieldEnum, OutputFieldEnumList, OutputFieldBool
 
 def test_input_field_initialization():
     field = InputField("name", "description")
@@ -59,3 +59,17 @@ def test_output_field_enum_list_format_prompt_description():
     field = OutputFieldEnumList("name", "description", TestEnum)
     assert "A comma-separated list of one or more of: VALUE1, VALUE2, VALUE3" in field.format_prompt_description("openai")
     assert "A comma-separated list of one or more of: <choices>VALUE1, VALUE2, VALUE3</choices>" in field.format_prompt_description("anthropic")
+
+
+def test_output_field_bool_initialization():
+    field = OutputFieldBool("name", "description")
+    assert field.name == "name"
+    assert field.desc == "description"
+    assert field.transformer.__name__ == "as_bool"
+    assert field.validator.__name__ == "is_one_of"
+    assert field.kwargs['choices'] == ["Yes", "No"]
+
+def test_output_field_bool_format_prompt_description():
+    field = OutputFieldBool("name", "description")
+    assert "One of: Yes, No" in field.format_prompt_description("openai")
+    assert "One of: <choices>Yes, No</choices>" in field.format_prompt_description("anthropic")
