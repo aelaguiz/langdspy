@@ -99,6 +99,52 @@ class InputFieldList(InputField):
                 res += f"{self._start_format_anthropic()}NO VALUES SPECIFIED</{self.name}>"
         return res
 
+class InputFieldDict(InputField):
+    def format_prompt_value(self, value, llm_type: str):
+        if llm_type == "openai":
+            return self._format_openai_prompt_value(value)
+        elif llm_type == "anthropic":
+            return self._format_anthropic_prompt_value(value)
+
+    def _format_openai_prompt_value(self, value):
+        formatted_dict = ""
+        for key, val in value.items():
+            formatted_dict += f"{self._start_format_openai()} {key}: {val}\n"
+        return formatted_dict.strip()
+
+    def _format_anthropic_prompt_value(self, value):
+        formatted_dict = f"<{self.name}>\n"
+        for key, val in value.items():
+            formatted_dict += f"  <{key}>{val}</{key}>\n"
+        formatted_dict += f"</{self.name}>"
+        return formatted_dict
+
+class InputFieldDictList(InputField):
+    def format_prompt_value(self, value, llm_type: str):
+        if llm_type == "openai":
+            return self._format_openai_prompt_value(value)
+        elif llm_type == "anthropic":
+            return self._format_anthropic_prompt_value(value)
+
+    def _format_openai_prompt_value(self, value):
+        formatted_list = ""
+        for i, item in enumerate(value):
+            formatted_list += f"{self._start_format_openai()} Item {i+1}:\n"
+            for key, val in item.items():
+                formatted_list += f"  {key}: {val}\n"
+            formatted_list += "\n"
+        return formatted_list.strip()
+
+    def _format_anthropic_prompt_value(self, value):
+        formatted_list = f"<{self.name}>\n"
+        for i, item in enumerate(value):
+            formatted_list += f"  <{self.name} {i + 1}>\n"
+            for key, val in item.items():
+                formatted_list += f"    <{key}>{val}</{key}>\n"
+            formatted_list += f"  </{self.name} {i + 1}>\n"
+        formatted_list += f"</{self.name}>"
+        return formatted_list
+
 class OutputField(FieldDescriptor):
     START_TOKEN_OPENAI = "🔑"
     START_TOKEN_ANTHROPIC = None
