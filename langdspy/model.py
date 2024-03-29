@@ -52,11 +52,12 @@ class Model(RunnableSerializable, BaseEstimator, ClassifierMixin):
         self.kwargs = {**kwargs, 'trained_state': self.trained_state}
         for field_name, field in self.__fields__.items():
             if issubclass(field.type_, PromptRunner):
-                self.prompt_runners.append((field_name, field.default))
+                field_value = field.get_default()
+                self.prompt_runners.append((field_name, field_value))
 
-                field.default.set_model_kwargs(self.kwargs)
+                field_value.set_model_kwargs(self.kwargs)
                 # Necessary since pydantic creates a new version of the object
-                setattr(self, field_name, field.default)
+                setattr(self, field_name, field_value)
 
     
     def save(self, filepath):
