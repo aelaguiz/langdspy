@@ -80,7 +80,7 @@ def test_trained_state_in_inputs():
 
         print(result)
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': True,  'llm_type': "test"}
+        call_args = {**input_dict, 'print_prompt': False, 'trained_state': model.trained_state, 'use_training': True,  'llm_type': "test"}
         print(f"Expecting call {call_args}")
         mock_invoke.assert_called_with(**call_args)
 
@@ -96,6 +96,6 @@ def test_use_training():
 
         print(result)
         print(f"Called with {mock_invoke.call_count} {mock_invoke.call_args_list} {mock_invoke.call_args}")
-        call_args = {**input_dict, 'print_prompt': "TEST", 'trained_state': model.trained_state, 'use_training': False,  'llm_type': "test"}
+        call_args = {**input_dict, 'print_prompt': False, 'trained_state': model.trained_state, 'use_training': False,  'llm_type': "test"}
         print(f"Expecting call {call_args}")
         mock_invoke.assert_called_with(**call_args)
