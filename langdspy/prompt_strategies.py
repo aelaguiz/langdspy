@@ -221,7 +221,7 @@ class DefaultPromptStrategy(PromptStrategy):
         prompt += "\nOutput:\n"
         output_dict = {}
         for output_name, output_field in self.output_variables.items():
-            output_dict.update(output_field.format_prompt_json())
+            output_dict.update(output_field.format_prompt_json('openai_json'))
         prompt += json.dumps(output_dict, indent=2) + "\n"
 
         return prompt

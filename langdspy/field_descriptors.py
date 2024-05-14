@@ -73,8 +73,8 @@ class InputField(FieldDescriptor):
             return f"{self._start_format_anthropic()}{value}</{self.name}>"
 
     def format_prompt_value_json(self, value, llm_type: str):
-        value = self.format_value(value)
-        return {self.name: value}
+        formatted_value = self.format_value(value)
+        return {self.name: formatted_value}
 
 
 class InputFieldList(InputField):
@@ -104,6 +104,9 @@ class InputFieldList(InputField):
             elif llm_type == "anthropic":
                 res += f"{self._start_format_anthropic()}NO VALUES SPECIFIED</{self.name}>"
         return res
+    def format_prompt_value_json(self, value, llm_type: str):
+        formatted_values = [self.format_value(v) for v in value]
+        return {self.name: formatted_values}
 
 class InputFieldDict(InputField):
     def format_prompt_value(self, value, llm_type: str):
@@ -177,11 +180,12 @@ class OutputField(FieldDescriptor):
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}</{self.name}>"
 
-    def format_prompt_json(self):
+    def format_prompt_json(self, llm_type: str):
         return {self.name: ""}
 
     def format_prompt_value_json(self, value, llm_type: str):
-        return {self.name: value}
+        formatted_value = self.format_value(value)
+        return {self.name: formatted_value}
 
 
 class OutputFieldBool(OutputField):
@@ -234,6 +238,10 @@ class OutputFieldEnum(OutputField):
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}One of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"
 
+    def format_prompt_value_json(self, value, llm_type: str):
+        return {self.name: value.value}
+
+
 class OutputFieldEnumList(OutputField):
     def __init__(self, name: str, desc: str, enum: Enum, **kwargs):
         kwargs['enum'] = enum
@@ -251,3 +259,6 @@ class OutputFieldEnumList(OutputField):
             return f"{self._start_format_openai()}: A comma-separated list of one or more of: {choices_str} - {self.desc}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}A comma-separated list of one or more of: <choices>{choices_str}</choices> - {self.desc}</{self.name}>"
+
+    def format_prompt_value_json(self, value, llm_type: str):
+        return {self.name: [v.value for v in value]}

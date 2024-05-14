@@ -36,4 +36,5 @@ def as_bulleted_list(items: List[str], kwargs: Dict) -> str:
     return '\n' + '\n'.join(f"- {item}" for item in items)
 
 def as_yaml(obj: Any, kwargs: Dict) -> str:
+    print(f"Formatting as yaml: {obj}")
     return f"\n«{yaml.dump(obj, default_flow_style=False)}»\n"

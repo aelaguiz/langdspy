@@ -150,3 +150,67 @@ def test_format_prompt_value_anthropic():
     ]
     expected_output = "<input_list>\n  <input_list 1>\n    <name>John Doe</name>\n    <age>30</age>\n    <city>New York</city>\n  </input_list 1>\n  <input_list 2>\n    <name>Jane Smith</name>\n    <age>25</age>\n    <city>London</city>\n  </input_list 2>\n</input_list>"
     assert field.format_prompt_value(input_list, "anthropic") == expected_output
+
+def test_input_field_list_format_prompt_value_json():
+    field = InputFieldList("name", "description")
+    assert field.format_prompt_value_json(["value1", "value2"], 'openai_json') == {"name": ["value1", "value2"]}
+
+def test_input_field_dict_format_prompt_value_json():
+    field = InputFieldDict("input_dict", "A dictionary input")
+    input_dict = {
+        "name": "John Doe",
+        "age": 30,
+        "city": "New York"
+    }
+    expected_output = {"input_dict": {"name": "John Doe", "age": 30, "city": "New York"}}
+    assert field.format_prompt_value_json(input_dict, 'openai_json') == expected_output
+
+def test_input_field_dict_list_format_prompt_value_json():
+    field = InputFieldDictList("input_list", "A list of dictionaries")
+    input_list = [
+        {
+            "name": "John Doe",
+            "age": 30,
+            "city": "New York"
+        },
+        {
+            "name": "Jane Smith",
+            "age": 25,
+            "city": "London"
+        }
+    ]
+    expected_output = {"input_list": [
+        {"name": "John Doe", "age": 30, "city": "New York"},
+        {"name": "Jane Smith", "age": 25, "city": "London"}
+    ]}
+    assert field.format_prompt_value_json(input_list, 'openai_json') == expected_output
+
+def test_output_field_bool_format_prompt_value_json():
+    field = OutputFieldBool("is_valid", "Indicates if the input is valid")
+    assert field.format_prompt_value_json(True, 'openai_json') == {"is_valid": True}
+    assert field.format_prompt_value_json(False, 'openai_json') == {"is_valid": False}
+
+def test_output_field_choose_one_format_prompt_value_json():
+    field = OutputFieldChooseOne("color", "The selected color", choices=["red", "green", "blue"])
+    assert field.format_prompt_value_json("red", 'openai_json') == {"color": "red"}
+    assert field.format_prompt_value_json("green", 'openai_json') == {"color": "green"}
+
+def test_output_field_enum_format_prompt_value_json():
+    class Color(Enum):
+        RED = "red"
+        GREEN = "green"
+        BLUE = "blue"
+    
+    field = OutputFieldEnum("color", "The selected color", enum=Color)
+    assert field.format_prompt_value_json(Color.RED, 'openai_json') == {"color": "red"}
+    assert field.format_prompt_value_json(Color.GREEN, 'openai_json') == {"color": "green"}
+
+def test_output_field_enum_list_format_prompt_value_json():
+    class Color(Enum):
+        RED = "red"
+        GREEN = "green"
+        BLUE = "blue"
+    
+    field = OutputFieldEnumList("colors", "The selected colors", enum=Color)
+    assert field.format_prompt_value_json([Color.RED, Color.BLUE], 'openai_json') == {"colors": ["red", "blue"]}
+    assert field.format_prompt_value_json([Color.GREEN], 'openai_json') == {"colors": ["green"]}
