@@ -64,12 +64,18 @@ class InputField(FieldDescriptor):
             return f"{self._start_format_openai()}: {self.desc}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}{self.desc}</{self.name}>"
+
     def format_prompt_value(self, value, llm_type: str):
         value = self.format_value(value)
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {value}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}{value}</{self.name}>"
+
+    def format_prompt_value_json(self, value, llm_type: str):
+        value = self.format_value(value)
+        return {self.name: value}
+
 
 class InputFieldList(InputField):
     def format_prompt_description(self, llm_type: str):
@@ -157,17 +163,26 @@ class OutputField(FieldDescriptor):
             return f"{self._start_format_openai()}: {self.desc}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}{self.desc}</{self.name}>"
+
     def format_prompt_value(self, value, llm_type: str):
         value = self.format_value(value)
         if llm_type == "openai":
             return f"{self._start_format_openai()}: {value}"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}{value}</{self.name}>"
+
     def format_prompt(self, llm_type: str):
         if llm_type == "openai":
             return f"{self._start_format_openai()}:"
         elif llm_type == "anthropic":
             return f"{self._start_format_anthropic()}</{self.name}>"
+
+    def format_prompt_json(self):
+        return {self.name: ""}
+
+    def format_prompt_value_json(self, value, llm_type: str):
+        return {self.name: value}
+
 
 class OutputFieldBool(OutputField):
     def __init__(self, name: str, desc: str, **kwargs):

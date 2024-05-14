@@ -1,8 +1,18 @@
 import pytest
-from langdspy.field_descriptors import InputField, OutputField, OutputFieldBool
+import sys
+
+import logging
+
+logger = logging.getLogger("langdspy")
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+logger.addHandler(handler)
+
+from langdspy.field_descriptors import InputField, OutputField, OutputFieldBool, InputFieldDictList, HintField, InputFieldList
 from langdspy.prompt_strategies import PromptSignature, DefaultPromptStrategy
 from langdspy.prompt_runners import PromptRunner
 from langdspy.formatters import as_multiline
+
 
 class TestOutputParsingPromptSignature(PromptSignature):
     ticket_summary = InputField(name="Ticket Summary", desc="Summary of the ticket we're trying to analyze.")
@@ -137,3 +147,23 @@ Description: [Chatbot]:  Hi there, how can we help you today?   [user]:  I sent 
     result = prompt_runner.template.parse_output_to_fields(output_data, config["llm_type"])
     
     assert result["is_spam"] == "No"
+
+def test_output_parsing_openai_json():
+    prompt_runner = PromptRunner(template_class=TestOutputParsingPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    
+    input_data = {
+        "ticket_summary": "..."
+    }
+    
+    output_data = """
+    {
+        "Buyer Issues Summary": "The buyer is trying to personalize their order by selecting variants like color or size, but after making their selections and hitting \\"done\\", the changes are not being reflected. They are also asking how long delivery will take.",
+        "Buyer Issue Enum": "BOX_CONTENTS_CUSTOMIZATION"
+    }
+    """
+    
+    config = {"llm_type": "openai_json"}
+    result = prompt_runner.template.parse_output_to_fields(output_data, config["llm_type"])
+    
+    assert result["buyer_issues_summary"] == "The buyer is trying to personalize their order by selecting variants like color or size, but after making their selections and hitting \"done\", the changes are not being reflected. They are also asking how long delivery will take."
+    assert result["buyer_issue_category"] == "BOX_CONTENTS_CUSTOMIZATION"

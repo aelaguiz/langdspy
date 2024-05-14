@@ -82,7 +82,13 @@ class PromptRunner(RunnableSerializable):
         self.model_kwargs.update(model_kwargs)
 
     def _determine_llm_type(self, llm):
+        print(f"Determining llm type")
         if isinstance(llm, ChatOpenAI):  # Assuming OpenAILLM is the class for OpenAI models
+            print(f"Getting llm type")
+            logger.debug(llm.kwargs)
+            if llm.kwargs.get('response_format', {}).get('type') == 'json_object':
+                logger.info("OpenAI model response format is json_object")
+                return 'openai_json'
             return 'openai'
         elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
             return 'anthropic'
@@ -186,7 +192,7 @@ class PromptRunner(RunnableSerializable):
 
             len_parsed_output = len(parsed_output.keys())
             len_output_variables = len(self.template.output_variables.keys())
-            # logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
+            logger.debug(f"Parsed output keys: {parsed_output.keys()} [{len_parsed_output}] Expected output keys: {self.template.output_variables.keys()} [{len_output_variables}]")
 
             if len(parsed_output.keys()) != len(self.template.output_variables.keys()):
                 validation_err = f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}"

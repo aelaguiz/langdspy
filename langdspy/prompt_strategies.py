@@ -1,4 +1,5 @@
 from langchain.prompts import BasePromptTemplate  # Assuming this is the correct import path
+import json
 import re
 from langchain.prompts import FewShotPromptTemplate
 from langchain_core.runnables import RunnableSerializable
@@ -77,8 +78,8 @@ class PromptStrategy(BaseModel):
 
     def validate_inputs(self, inputs_dict):
         if not set(inputs_dict.keys()) == set(self.input_variables.keys()):
-            logger.error(f"Input keys do not match expected input keys {inputs_dict.keys()} {self.input_variables.keys()}")
-            raise ValueError(f"Input keys do not match expected input keys {inputs_dict.keys()} {self.input_variables.keys()}")
+            logger.error(f"Input keys do not match expected input keys Expected = {inputs_dict.keys()} Received = {self.input_variables.keys()}")
+            raise ValueError(f"Input keys do not match expected input keys Expected: {inputs_dict.keys()} Received: {self.input_variables.keys()}")
 
     def format(self, **kwargs: Any) -> str:
         logger.debug(f"PromptStrategy format with kwargs: {kwargs}")
@@ -103,6 +104,8 @@ class PromptStrategy(BaseModel):
 
             if llm_type == 'openai':
                 prompt = self._format_openai_prompt(trained_state, use_training, examples, **kwargs)
+            elif llm_type == 'openai_json':
+                prompt = self._format_openai_json_prompt(trained_state, use_training, examples, **kwargs)
             elif llm_type == 'anthropic':
                 prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
 
@@ -114,7 +117,9 @@ class PromptStrategy(BaseModel):
             raise e
 
     def parse_output_to_fields(self, output: str, llm_type: str) -> dict:
-        if llm_type == 'openai':
+        if llm_type == 'openai_json':
+            return self._parse_openai_json_output_to_fields(output)
+        elif llm_type == 'openai':
             return self._parse_openai_output_to_fields(output)
         elif llm_type == 'anthropic':
             return self._parse_anthropic_output_to_fields(output)
@@ -123,9 +128,12 @@ class PromptStrategy(BaseModel):
         else:
             raise ValueError(f"Unsupported LLM type: {llm_type}")
 
-
     @abstractmethod
     def _format_openai_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
+        pass
+
+    @abstractmethod
+    def _format_openai_json_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         pass
 
     @abstractmethod
@@ -145,9 +153,78 @@ class PromptStrategy(BaseModel):
     def _parse_anthropic_output_to_fields(self, output: str) -> dict:
         pass
 
+    @abstractmethod
+    def _parse_openai_json_output_to_fields(self, output: str) -> dict:
+        pass
+
 
 class DefaultPromptStrategy(PromptStrategy):
     OUTPUT_TOKEN = "🔑"
+
+    def _format_openai_json_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
+        prompt = "Follow the following format. Answer with a JSON object. Attributes that have values should not be changed or repeated."
+
+        if len(self.output_variables) > 1:
+            output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
+            prompt += f" Provide answers for {output_field_names}.\n"
+
+        if self.hint_variables:
+            prompt += "\n"
+
+            for _, hint_field in self.hint_variables.items():
+                prompt += hint_field.format_prompt_description("openai") + "\n"
+
+        prompt += "\nInput Fields:\n"
+        input_fields_dict = {}
+        for input_name, input_field in self.input_variables.items():
+            input_fields_dict[input_field.name] = input_field.desc
+        prompt += json.dumps(input_fields_dict, indent=2) + "\n"
+
+        prompt += "\nOutput Fields:\n"
+        output_fields_dict = {}
+        for output_name, output_field in self.output_variables.items():
+            output_fields_dict[output_field.name] = output_field.desc
+        prompt += json.dumps(output_fields_dict, indent=2) + "\n"
+
+        if examples:
+            prompt += "\nExamples:\n"
+            for example_input, example_output in examples:
+                example_dict = {"input": {}, "output": {}}
+                for input_name, input_field in self.input_variables.items():
+                    example_dict["input"].update(input_field.format_prompt_value_json(example_input.get(input_name), 'openai_json'))
+                for output_name, output_field in self.output_variables.items():
+                    if isinstance(example_output, dict):
+                        example_dict["output"].update(output_field.format_prompt_value_json(example_output.get(output_name), 'openai_json'))
+                    else:
+                        example_dict["output"].update(output_field.format_prompt_value_json(example_output, 'openai_json'))
+                prompt += json.dumps(example_dict, indent=2) + "\n"
+
+        if trained_state and trained_state.examples and use_training:
+            prompt += "\nTrained Examples:\n"
+            for example_X, example_y in trained_state.examples:
+                example_dict = {"input": {}, "output": {}}
+                for input_name, input_field in self.input_variables.items():
+                    example_dict["input"].update(input_field.format_prompt_value_json(example_X.get(input_name), 'openai_json'))
+                for output_name, output_field in self.output_variables.items():
+                    if isinstance(example_y, dict):
+                        example_dict["output"].update(output_field.format_prompt_value_json(example_y.get(output_name), 'openai_json'))
+                    else:
+                        example_dict["output"].update(output_field.format_prompt_value_json(example_y, 'openai_json'))
+                prompt += json.dumps(example_dict, indent=2) + "\n"
+
+        prompt += "\nInput:\n"
+        input_dict = {}
+        for input_name, input_field in self.input_variables.items():
+            input_dict.update(input_field.format_prompt_value_json(kwargs.get(input_name), 'openai_json'))
+        prompt += json.dumps(input_dict, indent=2) + "\n"
+
+        prompt += "\nOutput:\n"
+        output_dict = {}
+        for output_name, output_field in self.output_variables.items():
+            output_dict.update(output_field.format_prompt_json())
+        prompt += json.dumps(output_dict, indent=2) + "\n"
+
+        return prompt
 
     def _format_openai_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
         # print(f"Formatting prompt {kwargs}")
@@ -291,20 +368,20 @@ class DefaultPromptStrategy(PromptStrategy):
             pattern = r'^([^:]+): (.*)'
             lines = output.split(self.OUTPUT_TOKEN)
             parsed_fields = {}
-            # logger.debug(f"Parsing output to fields with pattern {pattern} and lines {lines}")
+            logger.debug(f"Parsing output to fields with pattern {pattern} and lines {lines}")
             for line in lines:
                 match = re.match(pattern, line, re.MULTILINE)
                 if match:
                     field_name, field_content = match.groups()
-                    # logger.debug(f"Matched line {line} - field name {field_name} field content {field_content}")
+                    logger.debug(f"Matched line {line} - field name {field_name} field content {field_content}")
                     output_field = self._get_output_field(field_name)
                     if output_field:
-                        # logger.debug(f"Matched field {field_name} to output field {output_field}")
+                        logger.debug(f"Matched field {field_name} to output field {output_field}")
                         parsed_fields[output_field] = field_content
                     else:
                         logger.error(f"Field {field_name} not found in output variables")
-                # else:
-                #     logger.debug(f"NO MATCH line {line}")
+                else:
+                    logger.debug(f"NO MATCH line {line}")
 
             if len(self.output_variables) == 1:
                 first_value = next(iter(parsed_fields.values()), None)
@@ -342,4 +419,38 @@ class DefaultPromptStrategy(PromptStrategy):
             import traceback
             traceback.print_exc()
 
+            raise e
+
+    def _parse_openai_json_output_to_fields(self, output: str) -> dict:
+        print(f"Parsing openai json")
+        try:
+            # Parse the JSON output
+            json_output = json.loads(output)
+
+            # Initialize an empty dictionary to store the parsed fields
+            parsed_fields = {}
+
+            # Iterate over the output variables
+            for output_name, output_field in self.output_variables.items():
+                # Check if the output field exists in the JSON output
+                if output_field.name in json_output:
+                    # Get the value of the output field from the JSON output
+                    field_value = json_output[output_field.name]
+
+                    # Apply any necessary transformations to the field value
+                    transformed_value = output_field.transform_value(field_value)
+
+                    # Store the transformed value in the parsed fields dictionary
+                    parsed_fields[output_name] = transformed_value
+                else:
+                    # If the output field is not present in the JSON output, set its value to None
+                    parsed_fields[output_name] = None
+
+            logger.debug(f"Parsed fields: {parsed_fields}")
+            return parsed_fields
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON output: {e}")
+            raise e
+        except Exception as e:
+            logger.error(f"An error occurred while parsing JSON output: {e}")
             raise e
