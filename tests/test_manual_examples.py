@@ -165,3 +165,60 @@ def test_format_prompt_with_multiple_output_fields_anthropic():
     assert "<input>Example input</input>" in formatted_prompt
     assert "<output1>Example output 1</output1>" in formatted_prompt
     assert "<output2>Example output 2</output2>" in formatted_prompt
+
+# ... (previous tests remain the same)
+
+def test_format_prompt_with_examples_openai_json():
+    prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    formatted_prompt = prompt_runner.template._format_openai_json_prompt(
+        trained_state=None,
+        use_training=True,
+        examples=TestPromptSignature.__examples__,
+        input="Test input"
+    )
+    assert 'Hint field' in formatted_prompt
+    assert '"input": "Input field"' in formatted_prompt
+    assert '"output": "Output field"' in formatted_prompt
+    assert '"input": "Example input 1"' in formatted_prompt
+    assert '"output": "Example output 1"' in formatted_prompt
+    assert '"input": "Example input 2"' in formatted_prompt
+    assert '"output": "Example output 2"' in formatted_prompt
+    assert '"input": "Test input"' in formatted_prompt
+    assert '"output": ""' in formatted_prompt
+
+def test_format_prompt_without_examples_openai_json():
+    prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    formatted_prompt = prompt_runner.template._format_openai_json_prompt(
+        trained_state=None,
+        use_training=False,
+        examples=[],
+        input="Test input"
+    )
+    assert 'Hint field' in formatted_prompt
+    assert '"input": "Input field"' in formatted_prompt
+    assert '"output": "Output field"' in formatted_prompt
+    assert '"input": "Test input"' in formatted_prompt
+    assert '"output": ""' in formatted_prompt
+    assert "Example input 1" not in formatted_prompt
+    assert "Example output 1" not in formatted_prompt
+    assert "Example input 2" not in formatted_prompt
+    assert "Example output 2" not in formatted_prompt
+
+def test_format_prompt_with_multiple_output_fields_openai_json():
+    class MultipleOutputPromptSignature(PromptSignature):
+        input = InputField(name="input", desc="Input field")
+        output1 = OutputField(name="output1", desc="Output field 1")
+        output2 = OutputField(name="output2", desc="Output field 2")
+        __examples__ = [
+            ({"input": "Example input"}, {"output1": "Example output 1", "output2": "Example output 2"}),
+        ]
+    prompt_runner = PromptRunner(template_class=MultipleOutputPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    formatted_prompt = prompt_runner.template._format_openai_json_prompt(
+        trained_state=None,
+        use_training=True,
+        examples=MultipleOutputPromptSignature.__examples__,
+        input="Test input"
+    )
+    assert '"input": "Example input"' in formatted_prompt
+    assert '"output1": "Example output 1"' in formatted_prompt
+    assert '"output2": "Example output 2"' in formatted_prompt

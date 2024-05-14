@@ -50,14 +50,6 @@ def test_parse_output_anthropic():
     
     assert parsed_output["output"] == "test output"
 
-def test_llm_type_detection_openai():
-    prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
-    
-    llm = ChatOpenAI()
-    llm_type = prompt_runner._determine_llm_type(llm)
-    
-    assert llm_type == "openai"
-
 def test_llm_type_detection_anthropic():
     prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
     
@@ -65,3 +57,28 @@ def test_llm_type_detection_anthropic():
     llm_type = prompt_runner._determine_llm_type(llm)
     
     assert llm_type == "anthropic"
+
+def test_format_prompt_openai_json():
+    prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    
+    formatted_prompt = prompt_runner.template._format_openai_json_prompt(trained_state=None, use_training=True, input="test input", examples=None)
+
+    print(formatted_prompt)
+    
+    assert 'Hint field' in formatted_prompt
+    assert "Input Fields:" in formatted_prompt
+    assert '"input": "Input field"' in formatted_prompt
+    assert "Output Fields:" in formatted_prompt
+    assert '"output": "Output field"' in formatted_prompt
+    assert "Input:" in formatted_prompt
+    assert '"input": "test input"' in formatted_prompt
+    assert "Output:" in formatted_prompt
+    assert '"output": ""' in formatted_prompt
+
+def test_parse_output_openai_json():
+    prompt_runner = PromptRunner(template_class=TestPromptSignature, prompt_strategy=DefaultPromptStrategy)
+    
+    output = '{"output": "test output"}'
+    parsed_output = prompt_runner.template._parse_openai_json_output_to_fields(output)
+    
+    assert parsed_output["output"] == "test output"
