@@ -26,6 +26,7 @@ import logging
 from .prompt_strategies import PromptSignature
 
 logger = logging.getLogger("langdspy")
+prompt_logger = logging.getLogger("langdspy.prompts")
 
 class Prediction(BaseModel):
     class Config:
@@ -160,6 +161,10 @@ class PromptRunner(RunnableSerializable):
                     print(formatted_prompt)
                     print(f"------------------------PROMPT END----------------------------------\n")
 
+                prompt_logger.info(f"------------------------PROMPT START--------------------------------")
+                prompt_logger.info(formatted_prompt)
+                prompt_logger.info(f"------------------------PROMPT END----------------------------------\n")
+
                 # logger.debug(f"Invoke args: {invoke_args}")
                 res = chain.invoke(invoke_args, config=config)
             except Exception as e:
@@ -178,6 +183,10 @@ class PromptRunner(RunnableSerializable):
                 print(f"------------------------RESULT START--------------------------------")
                 print(res)
                 print(f"------------------------RESULT END----------------------------------\n")
+
+            prompt_logger.info(f"------------------------RESULT START--------------------------------")
+            prompt_logger.info(res)
+            prompt_logger.info(f"------------------------RESULT END----------------------------------\n")
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
