@@ -78,6 +78,13 @@ class PromptStrategy(BaseModel):
 
     def validate_inputs(self, inputs_dict):
         if not set(inputs_dict.keys()) == set(self.input_variables.keys()):
+            missing_keys = set(self.input_variables.keys()) - set(inputs_dict.keys())
+            unexpected_keys = set(inputs_dict.keys()) - set(self.input_variables.keys())
+            if missing_keys:
+                logger.error(f"Missing input keys: {missing_keys}")
+            if unexpected_keys:
+                logger.error(f"Unexpected input keys: {unexpected_keys}")
+
             logger.error(f"Input keys do not match expected input keys Expected = {inputs_dict.keys()} Received = {self.input_variables.keys()}")
             raise ValueError(f"Input keys do not match expected input keys Expected: {inputs_dict.keys()} Received: {self.input_variables.keys()}")
 
