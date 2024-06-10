@@ -166,7 +166,7 @@ class PromptRunner(RunnableSerializable):
                 prompt_logger.info(f"------------------------PROMPT END----------------------------------\n")
 
                 # logger.debug(f"Invoke args: {invoke_args}")
-                res = chain.invoke(invoke_args, config=config)
+                prompt_res = chain.invoke(invoke_args, config=config)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -181,17 +181,17 @@ class PromptRunner(RunnableSerializable):
             # logger.debug(f"Raw output for prompt runner {self.template.__class__.__name__}: {res}")
             if print_prompt:
                 print(f"------------------------RESULT START--------------------------------")
-                print(res)
+                print(prompt_res)
                 print(f"------------------------RESULT END----------------------------------\n")
 
             prompt_logger.info(f"------------------------RESULT START--------------------------------")
-            prompt_logger.info(res)
+            prompt_logger.info(prompt_res)
             prompt_logger.info(f"------------------------RESULT END----------------------------------\n")
 
             # Use the parse_output_to_fields method from the PromptStrategy
             parsed_output = {}
             try:
-                parsed_output = self.template.parse_output_to_fields(res, llm_type)
+                parsed_output = self.template.parse_output_to_fields(prompt_res, llm_type)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
@@ -235,7 +235,7 @@ class PromptRunner(RunnableSerializable):
                     parsed_output[attr_name] = transformed_val
 
             end_time = time.time()
-            self.prompt_history.add_entry(self._determine_llm_type(config['llm']) + " " + self._determine_llm_model(config['llm']), formatted_prompt, res, parsed_output, validation_err, start_time, end_time)
+            self.prompt_history.add_entry(self._determine_llm_type(config['llm']) + " " + self._determine_llm_model(config['llm']), formatted_prompt, prompt_res, parsed_output, validation_err, start_time, end_time)
 
             res = {attr_name: parsed_output.get(attr_name, None) for attr_name in self.template.output_variables.keys()}
 
@@ -251,7 +251,10 @@ class PromptRunner(RunnableSerializable):
             raise ValueError(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries.")
         else:
             logger.error(f"Output validation failed for prompt runner {self.template.__class__.__name__} after {total_max_tries} tries, returning None.")
-            res = {attr_name: None for attr_name in self.template.output_variables.keys()}
+            if len(self.template.output_variables.keys()) == 1:
+                res = {attr_name: prompt_res for attr_name in self.template.output_variables.keys()}
+            else:
+                res = {attr_name: None for attr_name in self.template.output_variables.keys()}
 
         return res
  
