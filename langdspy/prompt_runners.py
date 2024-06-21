@@ -83,9 +83,7 @@ class PromptRunner(RunnableSerializable):
         self.model_kwargs.update(model_kwargs)
 
     def _determine_llm_type(self, llm):
-        print(f"Determining llm type")
         if isinstance(llm, ChatOpenAI):  # Assuming OpenAILLM is the class for OpenAI models
-            print(f"Getting llm type")
             logger.debug(llm.kwargs)
             if llm.kwargs.get('response_format', {}).get('type') == 'json_object':
                 logger.info("OpenAI model response format is json_object")
