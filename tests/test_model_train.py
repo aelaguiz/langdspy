@@ -7,13 +7,23 @@ import dotenv
 dotenv.load_dotenv()
 import pytest
 from unittest.mock import MagicMock
-import langdspy
+import logging
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import logging
 
-# Configure logging
+# Configure logging for langdspy
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+langdspy_logger = logging.getLogger('langdspy')
+langdspy_logger.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+langdspy_logger.addHandler(console_handler)
+
+import langdspy
+
+# Configure logging for this module
 logger = logging.getLogger(__name__)
 
 
