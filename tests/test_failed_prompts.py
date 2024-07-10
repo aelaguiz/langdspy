@@ -24,26 +24,41 @@ class TestFailedPromptStrategy(DefaultPromptStrategy):
         # Simulate a prompt that doesn't include all required fields
         return '{"incomplete": "json"}'
 
+    def parse_output_to_fields(self, output: str, llm_type: str) -> dict:
+        # Simulate parsing that doesn't return all required fields
+        return {"output1": "Some value"}
+
+@pytest.mark.filterwarnings("ignore:.*cannot collect test class.*")
 def test_failed_prompt_missing_input():
     prompt_runner = PromptRunner(template_class=TestFailedPromptSignature, prompt_strategy=TestFailedPromptStrategy)
     
     with pytest.raises(ValueError, match="Input keys do not match expected input keys"):
         prompt_runner.template.format_prompt(input1="test input", llm_type="openai")
 
+@pytest.mark.filterwarnings("ignore:.*cannot collect test class.*")
 def test_failed_prompt_extra_input():
     prompt_runner = PromptRunner(template_class=TestFailedPromptSignature, prompt_strategy=TestFailedPromptStrategy)
     
     with pytest.raises(ValueError, match="Input keys do not match expected input keys"):
         prompt_runner.template.format_prompt(input1="test input", input2="test input", extra_input="extra", llm_type="openai")
 
+@pytest.mark.filterwarnings("ignore:.*cannot collect test class.*")
 def test_failed_prompt_anthropic():
     prompt_runner = PromptRunner(template_class=TestFailedPromptSignature, prompt_strategy=TestFailedPromptStrategy)
     
     with pytest.raises(ValueError, match="Input keys do not match expected input keys"):
         prompt_runner.template.format_prompt(input1="test input", llm_type="anthropic")
 
+@pytest.mark.filterwarnings("ignore:.*cannot collect test class.*")
 def test_failed_prompt_openai_json():
     prompt_runner = PromptRunner(template_class=TestFailedPromptSignature, prompt_strategy=TestFailedPromptStrategy)
     
     with pytest.raises(ValueError, match="Input keys do not match expected input keys"):
         prompt_runner.template.format_prompt(input1="test input", llm_type="openai_json")
+
+@pytest.mark.filterwarnings("ignore:.*cannot collect test class.*")
+def test_failed_prompt_missing_output():
+    prompt_runner = PromptRunner(template_class=TestFailedPromptSignature, prompt_strategy=TestFailedPromptStrategy)
+    
+    with pytest.raises(ValueError, match="Output keys do not match expected output keys"):
+        result = prompt_runner.invoke({"input1": "test", "input2": "test"}, config={"llm_type": "openai"})
