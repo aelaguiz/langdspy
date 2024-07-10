@@ -6,7 +6,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_vali
 from langchain_core.pydantic_v1 import validator
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
-from langchain_contrib.llms.testing import FakeLLM
+#  from langchain_contrib.llms.testing import FakeLLM
 from typing import Any, Dict, List, Type, Optional, Callable
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -92,8 +92,6 @@ class PromptRunner(RunnableSerializable):
             return 'openai'
         elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
             return 'anthropic'
-        elif isinstance(llm, FakeLLM):
-            return 'fake_anthropic'
         else:
             return 'openai'  # Default to OpenAI if model type cannot be determined
 
@@ -102,8 +100,6 @@ class PromptRunner(RunnableSerializable):
             return llm.model_name
         elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
             return llm.model
-        elif isinstance(llm, FakeLLM):
-            return 'fake_anthropic'
         elif hasattr(llm, 'model_name'):
             return llm.model_name
         elif hasattr(llm, 'model'):
@@ -120,7 +116,7 @@ class PromptRunner(RunnableSerializable):
     def _invoke_with_retries(self, chain, input, max_tries=1, config: Optional[RunnableConfig] = {}):
         total_max_tries = max_tries
 
-        hard_fail = config.get('hard_fail', False)
+        hard_fail = config.get('hard_fail', True)
         llm_type = config.get('llm_type')  # Get the LLM type from the configuration
         if llm_type is None:
             llm_type = self._determine_llm_type(config['llm'])  # Auto-detect the LLM type if not specified
