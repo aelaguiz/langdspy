@@ -164,11 +164,6 @@ class PromptRunner(RunnableSerializable):
         return trained_state if trained_state and trained_state.examples else None
 
     def _log_prompt(self, formatted_prompt, print_prompt):
-        if print_prompt:
-            print(f"------------------------PROMPT START--------------------------------")
-            print(formatted_prompt)
-            print(f"------------------------PROMPT END----------------------------------\n")
-
         prompt_logger.info(f"------------------------PROMPT START--------------------------------")
         prompt_logger.info(formatted_prompt)
         prompt_logger.info(f"------------------------PROMPT END----------------------------------\n")
@@ -240,9 +235,6 @@ class PromptRunner(RunnableSerializable):
                 return {attr_name: None for attr_name in self.template.output_variables.keys()}
  
     def invoke(self, input: Input, config: Optional[RunnableConfig] = {}) -> Output:
-        # logger.debug(f"Template: {self.template}")
-        # logger.debug(f"Config: {config}")
-
         chain = (
             self.template
             | config['llm']
@@ -255,8 +247,6 @@ class PromptRunner(RunnableSerializable):
             input['__examples__'] = config['__examples__']
 
         res = self._invoke_with_retries(chain, input, max_retries, config=config)
-
-        # logger.debug(f"Result: {res}")
 
         prediction_data = {**input, **res}
 

@@ -113,7 +113,7 @@ class PromptStrategy(BaseModel):
                 prompt = self._format_openai_prompt(trained_state, use_training, examples, **kwargs)
             elif llm_type == 'openai_json':
                 prompt = self._format_openai_json_prompt(trained_state, use_training, examples, **kwargs)
-            elif llm_type == 'anthropic':
+            elif llm_type == 'anthropic' or llm_type == 'fake_anthropic':
                 prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
 
             return prompt
@@ -128,7 +128,7 @@ class PromptStrategy(BaseModel):
             return self._parse_openai_json_output_to_fields(output)
         elif llm_type == 'openai':
             return self._parse_openai_output_to_fields(output)
-        elif llm_type == 'anthropic':
+        elif llm_type == 'anthropic' or llm_type == 'fake_anthropic':
             return self._parse_anthropic_output_to_fields(output)
         elif llm_type == 'test':
             return self._parse_openai_output_to_fields(output)
