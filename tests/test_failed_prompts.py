@@ -9,15 +9,18 @@ class TestFailedPromptSignature(PromptSignature):
     output2 = OutputField(name="output2", desc="Output field 2")
 
 class TestFailedPromptStrategy(DefaultPromptStrategy):
-    def _format_openai_prompt(self, trained_state, use_training, examples, **kwargs):
+    @staticmethod
+    def _format_openai_prompt(trained_state, use_training, examples, **kwargs):
         # Simulate a prompt that doesn't include all required fields
         return "This is a simulated prompt without all required fields"
 
-    def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs):
+    @staticmethod
+    def _format_anthropic_prompt(trained_state, use_training, examples, **kwargs):
         # Simulate a prompt that doesn't include all required fields
         return "This is a simulated prompt without all required fields"
 
-    def _format_openai_json_prompt(self, trained_state, use_training, examples, **kwargs):
+    @staticmethod
+    def _format_openai_json_prompt(trained_state, use_training, examples, **kwargs):
         # Simulate a prompt that doesn't include all required fields
         return '{"incomplete": "json"}'
 
