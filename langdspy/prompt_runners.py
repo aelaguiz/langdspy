@@ -189,13 +189,14 @@ class PromptRunner(RunnableSerializable):
         prompt_logger.info(f"------------------------RESULT END----------------------------------\n")
 
     def _validate_output(self, parsed_output, input):
-        if len(parsed_output.keys()) != len(self.template.output_variables.keys()):
-            return f"Output keys do not match expected output keys for prompt runner {self.template.__class__.__name__}"
-
         for attr_name, output_field in self.template.output_variables.items():
             output_value = parsed_output.get(attr_name)
-            if not output_value:
-                return f"Failed to get output value for field {attr_name} for prompt runner {self.template.__class__.__name__}"
+            if output_value is None:
+                if not getattr(output_field, 'optional', False):
+                    return f"Failed to get output value for non-optional field {attr_name} for prompt runner {self.template.__class__.__name__}"
+                else:
+                    parsed_output[attr_name] = None
+                    continue
 
             if not output_field.validate_value(input, output_value):
                 return f"Failed to validate field {attr_name} value {output_value} for prompt runner {self.template.__class__.__name__}"
