@@ -149,12 +149,11 @@ class PromptRunner(RunnableSerializable):
     def _execute_prompt(self, chain, input, config, llm_type):
         kwargs = {**self.model_kwargs, **self.kwargs}
         trained_state = self._get_trained_state(config)
-        print_prompt = kwargs.get('print_prompt', config.get('print_prompt', False))
         
-        invoke_args = {**input, 'print_prompt': print_prompt, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True), 'llm_type': llm_type}
+        invoke_args = {**input, **kwargs, 'trained_state': trained_state, 'use_training': config.get('use_training', True), 'llm_type': llm_type}
         formatted_prompt = self.template.format_prompt(**invoke_args)
         
-        self._log_prompt(formatted_prompt, print_prompt)
+        self._log_prompt(formatted_prompt)
         
         prompt_res = chain.invoke(invoke_args, config=config)
         return formatted_prompt, prompt_res
@@ -163,7 +162,7 @@ class PromptRunner(RunnableSerializable):
         trained_state = config.get('trained_state') or self.model_kwargs.get('trained_state') or self.kwargs.get('trained_state')
         return trained_state if trained_state and trained_state.examples else None
 
-    def _log_prompt(self, formatted_prompt, print_prompt):
+    def _log_prompt(self, formatted_prompt):
         prompt_logger.info(f"------------------------PROMPT START--------------------------------")
         prompt_logger.info(formatted_prompt)
         prompt_logger.info(f"------------------------PROMPT END----------------------------------\n")

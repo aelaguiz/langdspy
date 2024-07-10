@@ -96,18 +96,11 @@ class PromptStrategy(BaseModel):
         llm_type = kwargs.pop('llm_type', None)
 
         trained_state = kwargs.pop('trained_state', None)
-        print_prompt = kwargs.pop('print_prompt', False)
         use_training = kwargs.pop('use_training', True)
         examples = kwargs.pop('__examples__', self.__examples__)  # Add this line
 
-        # print(f"Formatting prompt with trained_state {trained_state} and print_prompt {print_prompt} and kwargs {kwargs}")
-        # print(f"Formatting prompt with use_training {use_training}")
-
         try:
-            # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
             self.validate_inputs(kwargs)
-
-            # logger.debug(f"PromptStrategy format_prompt with kwargs: {kwargs}")
 
             if llm_type == 'openai':
                 prompt = self._format_openai_prompt(trained_state, use_training, examples, **kwargs)
