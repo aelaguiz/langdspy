@@ -8,7 +8,7 @@ with open('requirements.txt', 'r', encoding='utf-8') as f:
 
 setup(
     name="langdspy",
-    version="0.0.1",
+    version="0.0.2",
     description="Langchain implementation of Stanford's DSPy",
     long_description=long_description,
     long_description_content_type="text/markdown",
