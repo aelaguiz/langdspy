@@ -24,7 +24,7 @@ if __name__ == "__main__":
     X_test = dataset['test']['X']
     y_test = dataset['test']['y']
     
-    model = ProductSlugGenerator(n_jobs=4, print_prompt=True)
+    model = ProductSlugGenerator(n_jobs=4)
 
     before_test_accuracy = None
     if os.path.exists(output_path):

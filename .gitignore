@@ -16,3 +16,4 @@ __pycache__/
 htmlcov/
 .coverage
 *.swp
+.aider*

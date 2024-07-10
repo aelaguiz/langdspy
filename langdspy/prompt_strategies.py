@@ -77,16 +77,26 @@ class PromptStrategy(BaseModel):
     best_subset: List[Any] = []
 
     def validate_inputs(self, inputs_dict):
-        if not set(inputs_dict.keys()) == set(self.input_variables.keys()):
-            missing_keys = set(self.input_variables.keys()) - set(inputs_dict.keys())
-            unexpected_keys = set(inputs_dict.keys()) - set(self.input_variables.keys())
+        expected_keys = set(self.input_variables.keys())
+        received_keys = set(inputs_dict.keys())
+        
+        if expected_keys != received_keys:
+            missing_keys = expected_keys - received_keys
+            unexpected_keys = received_keys - expected_keys
+            error_message = []
+            
             if missing_keys:
+                error_message.append(f"Missing input keys: {', '.join(missing_keys)}")
                 logger.error(f"Missing input keys: {missing_keys}")
             if unexpected_keys:
+                error_message.append(f"Unexpected input keys: {', '.join(unexpected_keys)}")
                 logger.error(f"Unexpected input keys: {unexpected_keys}")
-
-            logger.error(f"Input keys do not match expected input keys Expected = {inputs_dict.keys()} Received = {self.input_variables.keys()}")
-            raise ValueError(f"Input keys do not match expected input keys Expected: {inputs_dict.keys()} Received: {self.input_variables.keys()}")
+            
+            error_message.append(f"Expected keys: {', '.join(expected_keys)}")
+            error_message.append(f"Received keys: {', '.join(received_keys)}")
+            
+            logger.error(f"Input keys do not match expected input keys. Expected: {expected_keys}, Received: {received_keys}")
+            raise ValueError(". ".join(error_message))
 
     def format(self, **kwargs: Any) -> str:
         logger.debug(f"PromptStrategy format with kwargs: {kwargs}")
@@ -96,24 +106,17 @@ class PromptStrategy(BaseModel):
         llm_type = kwargs.pop('llm_type', None)
 
         trained_state = kwargs.pop('trained_state', None)
-        print_prompt = kwargs.pop('print_prompt', False)
         use_training = kwargs.pop('use_training', True)
         examples = kwargs.pop('__examples__', self.__examples__)  # Add this line
 
-        # print(f"Formatting prompt with trained_state {trained_state} and print_prompt {print_prompt} and kwargs {kwargs}")
-        # print(f"Formatting prompt with use_training {use_training}")
-
         try:
-            # logger.debug(f"Formatting prompt with kwargs: {kwargs}")
             self.validate_inputs(kwargs)
-
-            # logger.debug(f"PromptStrategy format_prompt with kwargs: {kwargs}")
 
             if llm_type == 'openai':
                 prompt = self._format_openai_prompt(trained_state, use_training, examples, **kwargs)
             elif llm_type == 'openai_json':
                 prompt = self._format_openai_json_prompt(trained_state, use_training, examples, **kwargs)
-            elif llm_type == 'anthropic':
+            elif llm_type == 'anthropic' or llm_type == 'fake_anthropic':
                 prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
 
             return prompt
@@ -128,7 +131,7 @@ class PromptStrategy(BaseModel):
             return self._parse_openai_json_output_to_fields(output)
         elif llm_type == 'openai':
             return self._parse_openai_output_to_fields(output)
-        elif llm_type == 'anthropic':
+        elif llm_type == 'anthropic' or llm_type == 'fake_anthropic':
             return self._parse_anthropic_output_to_fields(output)
         elif llm_type == 'test':
             return self._parse_openai_output_to_fields(output)
