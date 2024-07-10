@@ -70,7 +70,7 @@ def slug_similarity(X, true_slugs, predicted_slugs):
 
 @pytest.fixture
 def model():
-    return ProductSlugGenerator(n_jobs=1, print_prompt=False)
+    return ProductSlugGenerator(n_jobs=1)
 
 @pytest.fixture
 def llm():
