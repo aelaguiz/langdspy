@@ -91,6 +91,8 @@ class PromptRunner(RunnableSerializable):
             return 'openai'
         elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
             return 'anthropic'
+        elif isinstance(llm, FakeLLM):
+            return 'fake_anthropic'
         else:
             return 'openai'  # Default to OpenAI if model type cannot be determined
 
@@ -99,6 +101,8 @@ class PromptRunner(RunnableSerializable):
             return llm.model_name
         elif isinstance(llm, ChatAnthropic):  # Assuming AnthropicLLM is the class for Anthropic models
             return llm.model
+        elif isinstance(llm, FakeLLM):
+            return 'fake_anthropic'
         elif hasattr(llm, 'model_name'):
             return llm.model_name
         elif hasattr(llm, 'model'):
