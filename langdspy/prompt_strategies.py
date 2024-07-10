@@ -85,8 +85,8 @@ class PromptStrategy(BaseModel):
             if unexpected_keys:
                 logger.error(f"Unexpected input keys: {unexpected_keys}")
 
-            logger.error(f"Input keys do not match expected input keys Expected = {inputs_dict.keys()} Received = {self.input_variables.keys()}")
-            raise ValueError(f"Input keys do not match expected input keys Expected: {inputs_dict.keys()} Received: {self.input_variables.keys()}")
+            logger.error(f"Input keys do not match expected input keys Expected {self.input_variables.keys()}=  Received = {inputs_dict.keys()}")
+            raise ValueError(f"Input keys do not match expected input keys Expected: {self.input_variables.keys()} Received: {inputs_dict.keys()}")
 
     def format(self, **kwargs: Any) -> str:
         logger.debug(f"PromptStrategy format with kwargs: {kwargs}")
