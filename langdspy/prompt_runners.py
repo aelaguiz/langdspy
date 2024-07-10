@@ -6,6 +6,7 @@ from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_vali
 from langchain_core.pydantic_v1 import validator
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain_contrib.llms.testing import FakeLLM
 from typing import Any, Dict, List, Type, Optional, Callable
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
