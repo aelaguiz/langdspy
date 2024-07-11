@@ -193,7 +193,7 @@ class PromptRunner(RunnableSerializable):
         for attr_name, output_field in self.template.output_variables.items():
             output_value = parsed_output.get(attr_name)
             if output_value is None:
-                if not output_field.kwargs['optional']:
+                if not output_field.kwargs.get('optional', False):
                     return f"Failed to get output value for non-optional field {attr_name} for prompt runner {self.template.__class__.__name__}"
                 else:
                     parsed_output[attr_name] = None
