@@ -155,6 +155,7 @@ class PromptRunner(RunnableSerializable):
         formatted_prompt = self.template.format_prompt(**invoke_args)
         
         self._log_prompt(formatted_prompt)
+        logger.debug(f"CONFIG: {config}")
         
         prompt_res = chain.invoke(invoke_args, config=config)
         return formatted_prompt, prompt_res
