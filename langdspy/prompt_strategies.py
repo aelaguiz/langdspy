@@ -2,12 +2,13 @@ from langchain.prompts import BasePromptTemplate  # Assuming this is the correct
 import json
 import re
 from langchain.prompts import FewShotPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_core.runnables import RunnableSerializable
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.pydantic_v1 import BaseModel, Field, create_model, root_validator, Extra
 from langchain_core.pydantic_v1 import validator
 from langchain_core.language_models import BaseLLM
-from typing import Any, Dict, List, Type, Optional, Callable, Tuple
+from typing import Any, Dict, List, Type, Optional, Callable, Tuple, Union
 import uuid
 from abc import ABC, abstractmethod
 from langchain_core.documents import Document
@@ -55,6 +56,49 @@ class PromptSignature(BasePromptTemplate, BaseModel):
         self.hint_variables = hints 
 
         self.validate_examples()
+
+    def validate_inputs(self, inputs_dict):
+        expected_keys = set(self.input_variables.keys())
+        received_keys = set(inputs_dict.keys())
+        
+        if expected_keys != received_keys:
+            missing_keys = expected_keys - received_keys
+            unexpected_keys = received_keys - expected_keys
+            error_message = []
+            
+            if missing_keys:
+                error_message.append(f"Missing input keys: {', '.join(missing_keys)}")
+                logger.error(f"Missing input keys: {missing_keys}")
+            if unexpected_keys:
+                error_message.append(f"Unexpected input keys: {', '.join(unexpected_keys)}")
+                logger.error(f"Unexpected input keys: {unexpected_keys}")
+            
+            error_message.append(f"Expected keys: {', '.join(expected_keys)}")
+            error_message.append(f"Received keys: {', '.join(received_keys)}")
+            
+            logger.error(f"Input keys do not match expected input keys. Expected: {expected_keys}, Received: {received_keys}")
+            raise ValueError(". ".join(error_message))
+
+    '''
+    def _validate_input(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
+        if not self.input_variables:
+            return input_dict  # Return the input as-is if there are no input variables defined
+
+        validated_input = {}
+        for name, field in self.input_variables.items():
+            if name not in input_dict:
+                if not field.kwargs.get('optional', False):
+                    raise ValueError(f"Missing required input: {name}")
+                else:
+                    validated_input[name] = None
+                    continue
+            value = input_dict[name]
+            if not field.validate_value({}, value):
+                raise ValueError(f"Invalid input for {name}: {value}")
+            validated_input[name] = field.transform_value(value)
+        return validated_input
+    '''
+
 
     def validate_examples(self):
         for example_input, example_output in self.__examples__:
@@ -110,6 +154,7 @@ class PromptStrategy(BaseModel):
         examples = kwargs.pop('__examples__', self.__examples__)  # Add this line
 
         try:
+            
             self.validate_inputs(kwargs)
 
             if llm_type == 'openai':
@@ -118,6 +163,8 @@ class PromptStrategy(BaseModel):
                 prompt = self._format_openai_json_prompt(trained_state, use_training, examples, **kwargs)
             elif llm_type == 'anthropic' or llm_type == 'fake_anthropic':
                 prompt = self._format_anthropic_prompt(trained_state, use_training, examples, **kwargs)
+            else:
+                raise ValueError(f"Unsupported LLM type: {llm_type}")
 
             return prompt
         except Exception as e:
@@ -156,7 +203,7 @@ class PromptStrategy(BaseModel):
                 return output_name
 
     @abstractmethod
-    def _parse_openai_output_to_fields(self, output: str) -> dict:
+    def _parse_openai_output_to_fields(self, output: Union[str, 'AIMessage']) -> dict:
         pass
 
     @abstractmethod
@@ -164,7 +211,7 @@ class PromptStrategy(BaseModel):
         pass
 
     @abstractmethod
-    def _parse_openai_json_output_to_fields(self, output: str) -> dict:
+    def _parse_openai_json_output_to_fields(self, output: Union[str, 'AIMessage']) -> dict:
         pass
 
 
@@ -300,81 +347,91 @@ class DefaultPromptStrategy(PromptStrategy):
 
         return prompt
 
-    def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
-        # print(f"Formatting prompt {kwargs}")
-        # prompt = "Follow the following format. Attributes that have values should not be changed or repeated. "
-        prompt = ""
 
-        output_field_names = ', '.join([output_field.name for output_field in self.output_variables.values()])
-        # Format the instruction with the extracted names
-        prompt += f"Provide answers for output fields {output_field_names}. Follow the XML output format, only show the output fields do not repeat the hints, input fields or examples.\n"
-
+    def _format_anthopic_cache(self, trained_state, use_training, examples) -> str:
+        cache = ""
+        
+        cache = f"Provide answers for output fields {', '.join([output_field.name for output_field in self.output_variables.values()])}. Follow the XML output format, only show the output fields do not repeat the hints, input fields or examples."
+        
+        # Hints
         if self.hint_variables:
-            prompt += "\n<hints>\n"
-            for _, hint_field in self.hint_variables.items():
-                prompt += hint_field.format_prompt_description("anthropic") + "\n"
-            prompt += "</hints>\n"
+            hint_content = "\n".join([hint_field.format_prompt_description("anthropic") for _, hint_field in self.hint_variables.items()])
+            cache += f"Hints:\n{hint_content}"
 
-        prompt += "\n\n<input_fields>\n"
-        for input_name, input_field in self.input_variables.items():
-            # prompt += f"⏎{input_field.name}: {input_field.desc}\n"
-            prompt += input_field.format_prompt_description("anthropic") + "\n"
-        prompt += "</input_fields>\n"
-        prompt += "\n<output_fields>\n"
-        for output_name, output_field in self.output_variables.items():
-            prompt += output_field.format_prompt_description("anthropic") + "\n"
-            # prompt += f"{self.OUTPUT_TOKEN}{output_field.name}: {output_field.desc}\n"
-        prompt += "</output_fields>\n"
+        # Input and Output fields description
+        fields_description = "<input_fields>\n"
+        fields_description += "\n".join([input_field.format_prompt_description("anthropic") for _, input_field in self.input_variables.items()])
+        fields_description += "\n</input_fields>\n<output_fields>\n"
+        fields_description += "\n".join([output_field.format_prompt_description("anthropic") for _, output_field in self.output_variables.items()])
+        fields_description += "\n</output_fields>"
+        cache += fields_description
 
+        # Examples
         if examples:
-            prompt += "\n<examples>\n"
             for example_input, example_output in examples:
-                prompt += "\n<example>\n"
-                prompt += "<input>\n"
-                for input_name, input_field in self.input_variables.items():
-                    prompt += input_field.format_prompt_value(example_input.get(input_name), "anthropic") + "\n"
-                prompt += "</input>\n"
-                prompt += "<output>\n"
-                for output_name, output_field in self.output_variables.items():
-                    if isinstance(example_output, dict):
-                        prompt += output_field.format_prompt_value(example_output.get(output_name), "anthropic") + "\n"
-                    else:
-                        prompt += output_field.format_prompt_value(example_output, "anthropic") + "\n"
-                prompt += "</output>\n"
-                prompt += "</example>\n"
-            prompt += "</examples>\n"
+                example_message = "<example>\n<input>\n"
+                example_message += "\n".join([input_field.format_prompt_value(example_input.get(input_name), "anthropic") for input_name, input_field in self.input_variables.items()])
+                example_message += "\n</input>\n<output>\n"
+                if isinstance(example_output, dict):
+                    example_message += "\n".join([output_field.format_prompt_value(example_output.get(output_name), "anthropic") for output_name, output_field in self.output_variables.items()])
+                else:
+                    example_message += "\n".join([output_field.format_prompt_value(example_output, "anthropic") for output_name, output_field in self.output_variables.items()])
+                example_message += "\n</output>\n</example>"
+                cache += example_message
 
+        # Trained examples
         if trained_state and trained_state.examples and use_training:
-            prompt += "\n<examples>\n"
             for example_X, example_y in trained_state.examples:
-                prompt += "\n<example>\n"
-                prompt += "<input>\n"
-                for input_name, input_field in self.input_variables.items():
-                    prompt += input_field.format_prompt_value(example_X.get(input_name), "anthropic") + "\n"
-                prompt += "</input>\n"
-                prompt += "<output>\n"
-                for output_name, output_field in self.output_variables.items():
-                    if isinstance(example_y, dict):
-                        prompt += output_field.format_prompt_value(example_y.get(output_name), "anthropic") + "\n"
-                    else:
-                        prompt += output_field.format_prompt_value(example_y, "anthropic") + "\n"
-                prompt += "</output>\n"
-                prompt += "</example>\n"
-            prompt += "</examples>\n"
+                trained_example_message = "<example>\n<input>\n"
+                trained_example_message += "\n".join([input_field.format_prompt_value(example_X.get(input_name), "anthropic") for input_name, input_field in self.input_variables.items()])
+                trained_example_message += "\n</input>\n<output>\n"
+                if isinstance(example_y, dict):
+                    trained_example_message += "\n".join([output_field.format_prompt_value(example_y.get(output_name), "anthropic") for output_name, output_field in self.output_variables.items()])
+                else:
+                    trained_example_message += "\n".join([output_field.format_prompt_value(example_y, "anthropic") for output_name, output_field in self.output_variables.items()])
+                trained_example_message += "\n</output>\n</example>"
+                cache += trained_example_message
 
-        prompt += "\n<input>\n"
-        for input_name, input_field in self.input_variables.items():
-            prompt += input_field.format_prompt_value(kwargs.get(input_name), "anthropic") + "\n"
-        prompt += "</input>\n"
+        system_message = SystemMessage(content="""[
+            {
+                type: "text",
+                text: "%s",
+            
+                // Tell Anthropic to cache this block
+                cache_control: { type: "ephemeral" },
+            },
+            ]""" % cache
+        )
 
-        prompt += "\n<output>\n"
-        for output_name, output_field in self.output_variables.items():
-            prompt += output_field.format_prompt("anthropic") + "\n"
-        prompt += "</output>\n"
-        return prompt
+        return system_message
+
+
+    def _format_anthropic_prompt(self, trained_state, use_training, examples, **kwargs) -> str:
+        messages = []
+
+        system_message = self._format_anthopic_cache(trained_state, use_training, examples)
+        messages.append(system_message)
+
+        human_content = ""
+
+        # User input
+        user_input = "<input>\n"
+        user_input += "\n".join([input_field.format_prompt_value(kwargs.get(input_name), "anthropic") for input_name, input_field in self.input_variables.items()])
+        user_input += "\n</input>"
+        human_content += user_input
+
+        # Assistant response format
+        human_content += "Respond with the output in the following format:\n<output>\n[Your response here]\n</output>"
+
+        messages.append(HumanMessage(human_content))
+
+        return messages
 
     def _parse_openai_output_to_fields(self, output: str) -> dict:
         try:
+            if isinstance(output, dict):
+                return output
+
             pattern = r'^([^:]+): (.*)'
             lines = output.split(self.OUTPUT_TOKEN)
             parsed_fields = {}
@@ -408,28 +465,40 @@ class DefaultPromptStrategy(PromptStrategy):
 
             raise e
 
-    def _parse_anthropic_output_to_fields(self, output: str) -> dict:
+    def _parse_anthropic_output_to_fields(self, output: Union[str, 'AIMessage']) -> dict:
         try:
+            # Extract content if output is an AIMessage
+            if hasattr(output, 'content'):
+                output = output.content
+
+            print(self)
+            print(f"output: {output}")    
+
+            print(f"output_variables: {self.output_variables}")
+            
             parsed_fields = {}
             for output_name, output_field in self.output_variables.items():
-                pattern = fr"<{output_field.name}>(.*?)</{output_field.name}>"
-                # match = re.search(pattern, output, re.DOTALL)
-                # if match:
-                #     parsed_fields[output_name] = match.group(1).strip()
-                matches = re.findall(pattern, output, re.DOTALL)
-                if matches:
-                    # Take the last match
-                    last_match = matches[-1]
-                    parsed_fields[output_name] = last_match.strip()
-
+                if isinstance(output, str):
+                    pattern = fr"<{output_field.name}>(.*?)</{output_field.name}>"
+                    matches = re.findall(pattern, output, re.DOTALL)
+                    if matches:
+                        # Take the last match
+                        last_match = matches[-1]
+                        parsed_fields[output_name] = last_match.strip()
+                
+                elif isinstance(output, dict):
+                    if output_name in output.keys():
+                        parsed_fields[output_name] = output[output_name]
+                else:
+                    raise ValueError(f"Invalid output type: {type(output)}")
 
             logger.debug(f"Parsed fields: {parsed_fields}")
             return parsed_fields
         except Exception as e:
+            logger.error(f"Error parsing Anthropic output: {str(e)}")
             import traceback
             traceback.print_exc()
-
-            raise e
+            raise
 
     def _parse_openai_json_output_to_fields(self, output: str) -> dict:
         print(f"Parsing openai json")
